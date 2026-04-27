@@ -71,11 +71,11 @@
             },
             "linux": {
                 "comments": "To quit Alt + 2 > quit",
-                "command": "cd build/boot; qemu-system-x86_64 -net nic,model=ne2k_isa -net user,tftp=./ -cdrom grub.iso"
+                "command": "cd build/boot; qemu-system-x86_64 -net nic,model=ne2k_isa -net user,tftp=./ -cdrom grub.iso -vnc :0"
             },
             "osx": {
                 "comments": "To quit Alt + 2 > quit",
-                "command": "cd build/boot; qemu-system-x86_64 -net nic,model=ne2k_isa -net user,tftp=./ -cdrom grub.iso"
+                "command": "cd build/boot; qemu-system-x86_64 -net nic,model=ne2k_isa -net user,tftp=./ -cdrom grub.iso -vnc :0"
             },
             "group": {
                 "kind": "build",
