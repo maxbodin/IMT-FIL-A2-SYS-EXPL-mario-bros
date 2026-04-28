@@ -17,7 +17,9 @@ public:
     int getRow() const { return m_row; }
 
     TileState getState() const { return m_state; }
-    void setState(TileState state) { m_state = state; }
+    void setState(TileState s) { m_state = s; m_dirty = true; }
+
+    void markDirty() { m_dirty = true; }
 
     void render(int px, int py);
 
@@ -25,6 +27,7 @@ private:
     int m_col { 0 };
     int m_row { 0 };
     TileState m_state { TileState::Empty };
+    bool m_dirty { true };
 };
 
 #endif

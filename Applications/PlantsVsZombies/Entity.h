@@ -6,6 +6,7 @@ enum EntityState { ALIVE, DYING, DEAD };
 class Entity {
 public:
     Entity(int x, int y, int hp);
+    virtual ~Entity() {}
 
     virtual void update() = 0;
     virtual void render() = 0;
@@ -15,6 +16,8 @@ public:
 
     int getId() const;
     EntityState getState() const;
+    int getX() const;
+    int getY() const;
 
 protected:
     int _id;
