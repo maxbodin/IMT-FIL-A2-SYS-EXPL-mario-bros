@@ -6,8 +6,7 @@
 #include <sextant/interruptions/handler/handler_tic.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
-#include <vga/vga.h>
-#include <Applications/PlantsVsZombies/sprites/peashooter.h>
+#include <Applications/PlantsVsZombies/PlantsVsZombies.h>
 
 extern char __e_kernel;
 
@@ -26,11 +25,11 @@ extern "C" void Sextant_main(unsigned long magic, unsigned long addr){
 
 	mem_setup(&__e_kernel, (mbi->mem_upper << 10) + (1 << 20), 0);
 
-	set_vga_mode13();
-	set_palette_vga(peashooter_palette);
-	clear_vga_screen(0);
+	PlantsVsZombies game;
+	game.init();
 
-	draw_sprite(peashooter_sprite_data, PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT, 146, 84);
-
-	while (true);
+	while (true) {
+		game.update();
+		game.render();
+	}
 }

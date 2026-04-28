@@ -35,7 +35,7 @@ MV = mv -f
 
 KERNEL_OBJ   = sextant.elf
 
-OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga peashooter
+OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga peashooter Entity Peashooter Grid PlantsVsZombies
 
 
 OBJECTS=$(patsubst %,build/all-o/%.o,$(OBJECTSNAMES))					  		
