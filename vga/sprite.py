@@ -122,21 +122,26 @@ def png_to_c(path, external_palette=None,
         sys.stdout.write(f"{pix:3d}{sep}{end}")
     print("};", file=sys.stdout)
     
-    # Créer un fichier .h avec les définitions
-    header_path = path.rsplit('.', 1)[0] + '.h'
+    import os
+    base = os.path.splitext(os.path.basename(path))[0]
+    out_dir = os.path.dirname(path)
+    guard = base.upper() + "_SPRITE_H"
+    header_path = os.path.join(out_dir, base + "_sprite.h")
+    source_path = os.path.join(out_dir, base + "_sprite.cpp")
+
+    # Fichier .h avec include guard
     with open(header_path, 'w') as f:
-        f.write(f"// Généré par png_to_c_with_palette.py à partir de '{path}'\n")
+        f.write(f"#ifndef {guard}\n#define {guard}\n\n")
         f.write(f"#define {width_name}  {w}\n")
         f.write(f"#define {height_name} {h}\n\n")
         f.write(f"extern unsigned char {palette_name}[256][3];\n")
         f.write(f"extern unsigned char {array_name}[{width_name}*{height_name}];\n")
-    print(f"[i] Fichier d'en-tête généré: {header_path}", file=sys.stderr)
-    
-    # Optionnel: créer un fichier .c avec les données
-    source_path = path.rsplit('.', 1)[0] + '.c'
+        f.write(f"\n#endif\n")
+    print(f"[i] Header généré : {header_path}", file=sys.stderr)
+
+    # Fichier .cpp avec les données
     with open(source_path, 'w') as f:
-        f.write(f"// Généré par png_to_c_with_palette.py à partir de '{path}'\n")
-        f.write(f"#include \"{header_path}\"\n\n")
+        f.write(f"#include \"{os.path.basename(header_path)}\"\n\n")
         f.write(f"unsigned char {palette_name}[256][3] = {{\n")
         for r, g, b in vga_pal:
             f.write(f"    {{{r}, {g}, {b}}},\n")
@@ -147,11 +152,23 @@ def png_to_c(path, external_palette=None,
             end = "\n" if (i % 16 == 15) else " "
             f.write(f"{pix:3d}{sep}{end}")
         f.write("};\n")
-    print(f"[i] Fichier source généré: {source_path}", file=sys.stderr)
+    print(f"[i] Source généré  : {source_path}", file=sys.stderr)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert PNG to C arrays for VGA with optional external palette.")
     parser.add_argument('-p', '--palette', help="Fichier de palette externe (.pal ou .gpl)")
     parser.add_argument('image', help="Chemin vers l'image PNG à convertir")
     args = parser.parse_args()
-    png_to_c(args.image, external_palette=args.palette)
+
+    import os
+    base = os.path.splitext(os.path.basename(args.image))[0]  # ex: "peashooter"
+    guard = base.upper() + "_SPRITE_H"
+
+    png_to_c(
+        args.image,
+        external_palette=args.palette,
+        array_name=f"{base}_sprite_data",
+        width_name=f"{base.upper()}_WIDTH",
+        height_name=f"{base.upper()}_HEIGHT",
+        palette_name=f"{base}_palette",
+    )

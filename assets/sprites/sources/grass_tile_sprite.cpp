@@ -1,6 +1,6 @@
-#include "grass_tile.h"
+#include "grass_tile_sprite.h"
 
-unsigned char palette_vga[256][3] = {
+unsigned char grass_tile_palette[256][3] = {
     {0, 0, 0},
     {4, 4, 4},
     {8, 8, 8},

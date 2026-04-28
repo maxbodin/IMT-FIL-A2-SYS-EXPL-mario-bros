@@ -10,15 +10,13 @@ public:
     static const int TILE_SIZE = 32;
     static const int OFFSET_X = 16;
     static const int OFFSET_Y = 24;
+    Tile tiles[ROWS][COLS];
 
     Grid();
 
     Tile* getTile(int col, int row);
     void tileToPixel(int col, int row, int& px, int& py);
     void render();
-
-private:
-    Tile tiles[ROWS][COLS];
 };
 
 #endif

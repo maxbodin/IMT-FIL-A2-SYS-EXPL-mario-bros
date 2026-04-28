@@ -1,7 +1,6 @@
-// Généré par png_to_c_with_palette.py à partir de 'assets/sprites/sources/peashooter.png'
-#include "assets/sprites/sources/peashooter.h"
+#include "peashooter_sprite.h"
 
-unsigned char palette_vga[256][3] = {
+unsigned char peashooter_palette[256][3] = {
     {0, 0, 0},
     {4, 4, 4},
     {8, 8, 8},
@@ -260,7 +259,7 @@ unsigned char palette_vga[256][3] = {
     {63, 63, 37},
 };
 
-unsigned char sprite_data[SPRITE_WIDTH*SPRITE_HEIGHT] = {
+unsigned char peashooter_sprite_data[PEASHOOTER_WIDTH*PEASHOOTER_HEIGHT] = {
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,

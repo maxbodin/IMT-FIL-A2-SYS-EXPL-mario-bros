@@ -1,7 +1,6 @@
-// Généré par png_to_c_with_palette.py à partir de '../assets/sprites/sources/grass_tile.png'
-#include "../assets/sprites/sources/grass_tile.h"
+#include "grass_tile_sprite.h"
 
-unsigned char palette_vga[256][3] = {
+unsigned char grass_tile_palette[256][3] = {
     {0, 0, 0},
     {4, 4, 4},
     {8, 8, 8},
@@ -260,7 +259,7 @@ unsigned char palette_vga[256][3] = {
     {63, 63, 37},
 };
 
-unsigned char sprite_data[SPRITE_WIDTH*SPRITE_HEIGHT] = {
+unsigned char grass_tile_sprite_data[GRASS_TILE_WIDTH*GRASS_TILE_HEIGHT] = {
 212, 150, 212, 197, 197, 197, 197, 215, 215, 199, 215, 215, 199, 197, 197, 215,
 197, 198, 197, 197, 198, 197, 197, 197, 197, 197, 197, 197, 215, 215, 197, 212,
 197, 215, 215, 199, 215, 215, 215, 199, 215, 215, 199, 198, 215, 215, 198, 198,

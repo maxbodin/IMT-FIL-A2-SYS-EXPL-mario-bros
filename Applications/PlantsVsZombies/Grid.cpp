@@ -1,11 +1,12 @@
 #include <Applications/PlantsVsZombies/Grid.h>
+#include <Applications/PlantsVsZombies/Tile.h>
 #include <vga/vga.h>
 
 Grid::Grid() {
-    for (int row = 0; row < ROWS; row++) {
-        for (int col = 0; col < COLS; col++) {
-            tiles[row][col] = Tile(col, row);
-        }
+    for (int row = 0; row < ROWS; row++) {                                                                           
+       for (int col = 0; col < COLS; col++) {                                                                
+            tiles[row][col] = Tile(col, row);                                                                        
+       }                                                                                                     
     }
 }
 

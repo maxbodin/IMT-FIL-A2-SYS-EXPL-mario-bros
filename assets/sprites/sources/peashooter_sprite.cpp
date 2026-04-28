@@ -1,4 +1,4 @@
-#include <Applications/PlantsVsZombies/sprites/peashooter.h>
+#include "peashooter_sprite.h"
 
 unsigned char peashooter_palette[256][3] = {
     {0, 0, 0},
@@ -259,7 +259,7 @@ unsigned char peashooter_palette[256][3] = {
     {63, 63, 37},
 };
 
-unsigned char peashooter_sprite_data[PEASHOOTER_WIDTH * PEASHOOTER_HEIGHT] = {
+unsigned char peashooter_sprite_data[PEASHOOTER_WIDTH*PEASHOOTER_HEIGHT] = {
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,

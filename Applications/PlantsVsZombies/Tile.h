@@ -1,3 +1,6 @@
+#ifndef TILE_H
+#define TILE_H
+
 enum class TileState {
     Empty,
     HasPlant,
@@ -23,3 +26,5 @@ private:
     int m_row { 0 };
     TileState m_state { TileState::Empty };
 };
+
+#endif
