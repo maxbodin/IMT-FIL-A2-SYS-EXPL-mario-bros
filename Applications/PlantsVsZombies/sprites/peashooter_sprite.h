@@ -1,10 +1,10 @@
-#ifndef PEASHOOTER_SPRITE_H
-#define PEASHOOTER_SPRITE_H
+#ifndef PEASHOOTER_ANIM_H
+#define PEASHOOTER_ANIM_H
 
 #define PEASHOOTER_WIDTH  28
 #define PEASHOOTER_HEIGHT 32
+#define PEASHOOTER_FRAMES 8
 
-extern unsigned char peashooter_palette[256][3];
-extern unsigned char peashooter_sprite_data[PEASHOOTER_WIDTH*PEASHOOTER_HEIGHT];
+extern unsigned char peashooter_frames[PEASHOOTER_FRAMES][PEASHOOTER_WIDTH*PEASHOOTER_HEIGHT];
 
 #endif

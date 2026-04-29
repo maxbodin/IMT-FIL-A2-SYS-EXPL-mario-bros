@@ -3,15 +3,29 @@
 #include <sextant/memoire/memoire.h>
 #include <vga/vga.h>
 
+extern volatile int compt;
+
 PlantsVsZombies::PlantsVsZombies() : plantCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
 }
 
-void PlantsVsZombies::init() {
+void PlantsVsZombies::init(Ecran* e,Clavier* c) {
+    ecran = e;
+    clavier = c;
+
     set_vga_mode13();
     set_palette_vga(shared_palette);
     clear_vga_screen(0);
+}
+
+void PlantsVsZombies::update_screen() {
+    grid.render();
+    for (int i = 0; i < plantCount; i++) {
+        if (plants[i]) {
+            //plants[i]->render();
+        }
+    }
 }
 
 void PlantsVsZombies::start() {
@@ -23,5 +37,38 @@ void PlantsVsZombies::start() {
     plantCount = 1;
     plants[0]->render();
 
-    while (true);
+    int lastTick  = compt;
+    int renderFrames = 0;
+    int fpsTimer  = compt;
+    int fps       = 0;
+
+    while (true) {
+        while (compt == lastTick);
+        lastTick = compt;
+
+        if ((compt % 16) == 0) {
+            // plants[0]->update();
+            // grid.renderTile(0, 0);
+            // plants[0]->render();
+
+            update_screen();
+            renderFrames++;
+        }
+
+        if (compt - fpsTimer >= 1000) {
+            fps          = renderFrames;
+            renderFrames = 0;
+            fpsTimer     = compt;
+
+            int seconds = compt / 1000;
+
+            // secondes écoulées
+            plot_square(0, 0, 14, 0);
+            draw_number(seconds, 0, 2, 15, 2);
+
+            // FPS
+            plot_square(290, 0, 30, 0);
+            draw_number(fps, 290, 2, 15, 2);
+        }
+    }
 }

@@ -17,6 +17,7 @@ public:
     Tile* getTile(int col, int row);
     void tileToPixel(int col, int row, int& px, int& py);
     void render();
+    void renderTile(int col, int row);
 };
 
 #endif

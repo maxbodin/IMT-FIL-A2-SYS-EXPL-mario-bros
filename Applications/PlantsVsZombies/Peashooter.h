@@ -17,7 +17,10 @@ public:
     void resetCooldown();
 
 private:
+    static const int ANIM_SPEED = 10; // update calls entre chaque frame
     int cooldown;
+    int frame;
+    int animTick;
 };
 
 #endif

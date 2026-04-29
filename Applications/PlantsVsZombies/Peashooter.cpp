@@ -3,7 +3,7 @@
 #include <vga/vga.h>
 
 Peashooter::Peashooter(int x, int y)
-    : Entity(x, y, HP), cooldown(SHOOT_DELAY) {}
+    : Entity(x, y, HP), cooldown(SHOOT_DELAY), frame(0), animTick(0) {}
 
 void Peashooter::update() {
     if (state == DYING) {
@@ -12,11 +12,16 @@ void Peashooter::update() {
     }
     if (cooldown > 0)
         cooldown--;
+
+    if (++animTick >= ANIM_SPEED) {
+        animTick = 0;
+        frame = (frame + 1) % PEASHOOTER_FRAMES;
+    }
 }
 
 void Peashooter::render() {
     if (state == DEAD) return;
-    draw_sprite(peashooter_sprite_data, PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT, x, y);
+    draw_sprite(peashooter_frames[frame], PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT, x, y);
 }
 
 bool Peashooter::canShoot() const {

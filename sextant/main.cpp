@@ -25,9 +25,9 @@ extern "C" void Sextant_main(unsigned long magic, unsigned long addr){
 
 	mem_setup(&__e_kernel, (mbi->mem_upper << 10) + (1 << 20), 0);
 
-	PlantsVsZombies game;
-	game.init();
-	game.start();
+	PlantsVsZombies pvzgame;
+	pvzgame.init(&Ecran(), &clavier);
+	pvzgame.start();
 
 	while (true) {
 	}

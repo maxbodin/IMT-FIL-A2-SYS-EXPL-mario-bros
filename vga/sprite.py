@@ -154,21 +154,107 @@ def png_to_c(path, external_palette=None,
         f.write("};\n")
     print(f"[i] Source généré  : {source_path}", file=sys.stderr)
 
+def dir_to_c(dirpath, external_palette=None):
+    """Convertit un dossier de PNGs numérotés en tableau d'animation C."""
+    import os, re
+
+    pngs = sorted(
+        [f for f in os.listdir(dirpath) if f.lower().endswith('.png') and 'full' not in f.lower()],
+        key=lambda f: int(re.search(r'(\d+)', f).group(1)) if re.search(r'(\d+)', f) else 0
+    )
+    if not pngs:
+        print(f"[!] Aucun PNG trouvé dans {dirpath}", file=sys.stderr)
+        sys.exit(1)
+
+    base = os.path.basename(dirpath.rstrip('/\\'))
+    out_dir = dirpath
+
+    # Charger la palette externe une fois
+    if external_palette:
+        ext = external_palette.lower()
+        if ext.endswith('.pal'):
+            pal = parse_jasc_pal(external_palette)
+        elif ext.endswith('.gpl'):
+            pal = parse_gimp_gpl(external_palette)
+        else:
+            print(f"[!] Format non supporté: {external_palette}", file=sys.stderr)
+            sys.exit(1)
+        pal_img = build_palette_image(pal)
+    else:
+        pal = None
+
+    frames = []
+    width = height = None
+
+    for png in pngs:
+        path = os.path.join(dirpath, png)
+        im = Image.open(path)
+        if pal:
+            im_q = im.convert('RGB').quantize(palette=pal_img)
+        else:
+            if im.mode != 'P':
+                im_q = im.convert('RGB').quantize(colors=256)
+            else:
+                im_q = im
+        w, h = im_q.size
+        if width is None:
+            width, height = w, h
+        elif (w, h) != (width, height):
+            print(f"[!] {png}: taille {w}x{h} != {width}x{height}", file=sys.stderr)
+            sys.exit(1)
+        frames.append(list(im_q.getdata()))
+        print(f"[i] Frame {len(frames)-1}: {png} ({w}x{h})", file=sys.stderr)
+
+    nb = len(frames)
+    guard     = base.upper() + "_ANIM_H"
+    width_def = base.upper() + "_WIDTH"
+    height_def= base.upper() + "_HEIGHT"
+    frames_def= base.upper() + "_FRAMES"
+    array_name= base + "_frames"
+
+    # Écriture du .h
+    header_path = os.path.join(out_dir, base + "_sprite.h")
+    with open(header_path, 'w') as f:
+        f.write(f"#ifndef {guard}\n#define {guard}\n\n")
+        f.write(f"#define {width_def}  {width}\n")
+        f.write(f"#define {height_def} {height}\n")
+        f.write(f"#define {frames_def} {nb}\n\n")
+        f.write(f"extern unsigned char {array_name}[{frames_def}][{width_def}*{height_def}];\n")
+        f.write(f"\n#endif\n")
+    print(f"[i] Header généré : {header_path}", file=sys.stderr)
+
+    # Écriture du .cpp
+    source_path = os.path.join(out_dir, base + "_sprite.cpp")
+    with open(source_path, 'w') as f:
+        f.write(f'#include "{base}_sprite.h"\n\n')
+        f.write(f"unsigned char {array_name}[{frames_def}][{width_def}*{height_def}] = {{\n")
+        for fi, frame in enumerate(frames):
+            f.write(f"    {{ // frame {fi}\n    ")
+            for i, pix in enumerate(frame):
+                sep = "," if i < len(frame)-1 else ""
+                end = "\n    " if (i % 16 == 15) else " "
+                f.write(f"{pix:3d}{sep}{end}")
+            f.write("},\n")
+        f.write("};\n")
+    print(f"[i] Source généré  : {source_path}", file=sys.stderr)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert PNG to C arrays for VGA with optional external palette.")
+    parser = argparse.ArgumentParser(description="Convert PNG(s) to C arrays for VGA.")
     parser.add_argument('-p', '--palette', help="Fichier de palette externe (.pal ou .gpl)")
-    parser.add_argument('image', help="Chemin vers l'image PNG à convertir")
+    parser.add_argument('image', help="Chemin vers une image PNG ou un dossier de PNGs numérotés")
     args = parser.parse_args()
 
     import os
-    base = os.path.splitext(os.path.basename(args.image))[0]  # ex: "peashooter"
-    guard = base.upper() + "_SPRITE_H"
-
-    png_to_c(
-        args.image,
-        external_palette=args.palette,
-        array_name=f"{base}_sprite_data",
-        width_name=f"{base.upper()}_WIDTH",
-        height_name=f"{base.upper()}_HEIGHT",
-        palette_name=f"{base}_palette",
-    )
+    if os.path.isdir(args.image):
+        dir_to_c(args.image, external_palette=args.palette)
+    else:
+        base = os.path.splitext(os.path.basename(args.image))[0]
+        png_to_c(
+            args.image,
+            external_palette=args.palette,
+            array_name=f"{base}_sprite_data",
+            width_name=f"{base.upper()}_WIDTH",
+            height_name=f"{base.upper()}_HEIGHT",
+            palette_name=f"{base}_palette",
+        )

@@ -109,6 +109,41 @@ void set_palette_vga(unsigned char palette_vga[256][3]) {
         outb(0x3C9, palette_vga[i][2]);
     }
 }
+// 3x5 bitmap font for digits 0-9 (bit 2 = left, bit 0 = right)
+static const unsigned char digit_font[10][5] = {
+    {0b111,0b101,0b101,0b101,0b111}, // 0
+    {0b010,0b110,0b010,0b010,0b111}, // 1
+    {0b111,0b001,0b111,0b100,0b111}, // 2
+    {0b111,0b001,0b011,0b001,0b111}, // 3
+    {0b101,0b101,0b111,0b001,0b001}, // 4
+    {0b111,0b100,0b111,0b001,0b111}, // 5
+    {0b111,0b100,0b111,0b101,0b111}, // 6
+    {0b111,0b001,0b001,0b001,0b001}, // 7
+    {0b111,0b101,0b111,0b101,0b111}, // 8
+    {0b111,0b101,0b111,0b001,0b111}, // 9
+};
+
+void draw_digit(int d, int x, int y, unsigned char color, int scale) {
+    for (int row = 0; row < 5; row++) {
+        for (int col = 0; col < 3; col++) {
+            if (digit_font[d][row] & (1 << (2 - col)))
+                plot_square(x + col * scale, y + row * scale, scale, color);
+        }
+    }
+}
+
+void draw_number(int n, int x, int y, unsigned char color, int scale) {
+    if (n < 0) n = 0;
+    char buf[6];
+    int len = 0;
+    if (n == 0) { buf[len++] = 0; }
+    else { int tmp = n; while (tmp > 0) { buf[len++] = tmp % 10; tmp /= 10; } }
+    for (int i = 0; i < len; i++) {
+        int digit = buf[len - 1 - i];
+        draw_digit(digit, x + i * (3 * scale + scale), y, color, scale);
+    }
+}
+
 // Draw a w×h sprite at (dstX, dstY), skipping color 255
 void draw_sprite(const unsigned char* sprite,
                  int w, int h,

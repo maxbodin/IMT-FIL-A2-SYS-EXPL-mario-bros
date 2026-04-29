@@ -30,3 +30,10 @@ void Grid::render() {
         }
     }
 }
+
+void Grid::renderTile(int col, int row) {
+    if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+    int px, py;
+    tileToPixel(col, row, px, py);
+    tiles[row][col].render(px, py);
+}
