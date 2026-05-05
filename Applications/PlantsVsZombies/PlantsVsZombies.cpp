@@ -1,13 +1,17 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
+#include <Applications/PlantsVsZombies/PeashooterBullet.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
+#include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
 #include <sextant/memoire/memoire.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
+    for (int i = 0; i < MAX_BULLETS; i++)
+        bullets[i] = 0;
 }
 
 void PlantsVsZombies::init(Ecran* e,Clavier* c) {
@@ -20,12 +24,36 @@ void PlantsVsZombies::init(Ecran* e,Clavier* c) {
 }
 
 void PlantsVsZombies::update_screen() {
-    grid.render();
+    // update plants + spawn bullets
     for (int i = 0; i < plantCount; i++) {
-        if (plants[i]) {
-            //plants[i]->render();
+        if (!plants[i]) continue;
+        plants[i]->update();
+        if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
+            int bx = plants[i]->getX() + PEASHOOTER_WIDTH;
+            int by = plants[i]->getY() + PEASHOOTER_HEIGHT / 2;
+            bullets[bulletCount++] = new PeashooterBullet(bx, by);
+            plants[i]->resetCooldown();
         }
     }
+
+    // update bullets, supprimer inactives
+    for (int i = 0; i < bulletCount; i++) {
+        bullets[i]->erase();
+        bullets[i]->update();
+        if (!bullets[i]->isActive()) {
+            delete bullets[i];
+            bullets[i] = bullets[--bulletCount];
+            bullets[bulletCount] = 0;
+            i--;
+        }
+    }
+
+    // rendu : fond puis entités
+    grid.render();
+    for (int i = 0; i < plantCount; i++)
+        if (plants[i]) plants[i]->render();
+    for (int i = 0; i < bulletCount; i++)
+        if (bullets[i]) bullets[i]->render();
 }
 
 void PlantsVsZombies::start() {

@@ -25,3 +25,6 @@ int Entity::getId() const {
 EntityState Entity::getState() const {
     return state;
 }
+
+int Entity::getX() const { return x; }
+int Entity::getY() const { return y; }

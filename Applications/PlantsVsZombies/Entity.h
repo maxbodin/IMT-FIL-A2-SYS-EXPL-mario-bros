@@ -15,6 +15,8 @@ public:
 
     int getId() const;
     EntityState getState() const;
+    int getX() const;
+    int getY() const;
 
 protected:
     int _id;
