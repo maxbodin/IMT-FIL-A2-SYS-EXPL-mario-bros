@@ -50,6 +50,19 @@ def parse_gimp_gpl(path):
     return data[:256]
 
 
+def parse_cpp_pal(path):
+    """Parse un fichier shared_palette.cpp (VGA 6-bit) en liste de 256 tuples RGB 8-bit."""
+    import re as _re
+    data = []
+    with open(path, 'r') as f:
+        content = f.read()
+    for m in _re.finditer(r'\{(\d+),\s*(\d+),\s*(\d+)\}', content):
+        r6, g6, b6 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        data.append(((r6 * 255) // 63, (g6 * 255) // 63, (b6 * 255) // 63))
+    data += [(0, 0, 0)] * max(0, 256 - len(data))
+    return data[:256]
+
+
 def rgb_to_vga(r, g, b):
     """Convertit RGB 8-bit (0–255) en VGA 6-bit (0–63)."""
     return (r * 63) // 255, (g * 63) // 255, (b * 63) // 255
@@ -75,12 +88,13 @@ def png_to_c(path, external_palette=None,
 
     # Chargement et application de la palette externe si fournie
     if external_palette:
-        # Parse JASC ou GIMP
         ext = external_palette.lower()
         if ext.endswith('.pal'):
             pal = parse_jasc_pal(external_palette)
         elif ext.endswith('.gpl'):
             pal = parse_gimp_gpl(external_palette)
+        elif ext.endswith('.cpp') or ext.endswith('.h'):
+            pal = parse_cpp_pal(external_palette)
         else:
             print(f"[!] Format de palette non supporté: {external_palette}", file=sys.stderr)
             sys.exit(1)
@@ -161,7 +175,7 @@ def dir_to_c(dirpath, external_palette=None, out_dir=None):
     import os, re
 
     pngs = sorted(
-        [f for f in os.listdir(dirpath) if f.lower().endswith('.png') and 'full' not in f.lower()],
+        [f for f in os.listdir(dirpath) if f.lower().endswith('.png') and 'full' not in f.lower() and 'all' not in f.lower()],
         key=lambda f: int(re.search(r'(\d+)', f).group(1)) if re.search(r'(\d+)', f) else 0
     )
     if not pngs:
@@ -179,6 +193,8 @@ def dir_to_c(dirpath, external_palette=None, out_dir=None):
             pal = parse_jasc_pal(external_palette)
         elif ext.endswith('.gpl'):
             pal = parse_gimp_gpl(external_palette)
+        elif ext.endswith('.cpp') or ext.endswith('.h'):
+            pal = parse_cpp_pal(external_palette)
         else:
             print(f"[!] Format non supporté: {external_palette}", file=sys.stderr)
             sys.exit(1)
