@@ -38,6 +38,7 @@ void Zombie::render() {
     } else {
         draw_sprite(zombie_walk_frames[frame], ZOMBIE_WALK_WIDTH, ZOMBIE_WALK_HEIGHT, x, y);
     }
+    renderHpBar(ZOMBIE_WALK_WIDTH / 2, ZOMBIE_WALK_HEIGHT);
 }
 
 bool Zombie::canHit() const {

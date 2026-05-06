@@ -16,6 +16,9 @@ public:
     bool canShoot() const;
     void resetCooldown();
 
+    int getWidth() const override;
+    int getHeight() const override;
+
 private:
     static const int ANIM_SPEED = 10; // update calls entre chaque frame
     int cooldown;
