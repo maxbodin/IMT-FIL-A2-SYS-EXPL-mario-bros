@@ -1,6 +1,6 @@
 #include <Applications/PlantsVsZombies/Bullet.h>
 
-Bullet::Bullet(int x, int y) : x(x), y(y), active(true) {}
+Bullet::Bullet(int x, int y) : x(x), y(y), spawnX(x), active(true) {}
 
 bool Bullet::isActive() { 
     return active; 
@@ -12,6 +12,7 @@ void Bullet::deactivate() {
 int Bullet::getX() { 
     return x; 
 }
-int Bullet::getY() { 
-    return y; 
+int Bullet::getY() {
+    return y;
 }
+int Bullet::getSpawnX() const { return spawnX; }

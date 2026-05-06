@@ -16,12 +16,15 @@ public:
     bool canHit() const;
     void resetCooldown();
 
+    int getWidth()  const override;
+    int getHeight() const override;
+
     void block();
     void unblock();
     bool isBlocked() const;
 
 private:
-    static const int ANIM_SPEED = 10; // update calls entre chaque frame
+    static const int ANIM_SPEED = 25; // update calls entre chaque frame
     int cooldown;
     int frame;
     int animTick;

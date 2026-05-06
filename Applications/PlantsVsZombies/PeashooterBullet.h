@@ -11,8 +11,13 @@ public:
     void render() override;
     void erase() override;
 
+    int getWidth()  const override;
+    int getHeight() const override;
+    int getDamage() const override;
+
 private:
-    static const int SPEED = 4;
+    static const int SPEED  = 4;
+    static const int DAMAGE = 25;
 };
 
 #endif

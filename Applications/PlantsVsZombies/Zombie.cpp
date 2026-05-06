@@ -34,8 +34,11 @@ void Zombie::render() {
 }
 
 bool Zombie::canHit() const {
-    return state == ALIVE && cooldown == 0;
+    return state != DYING && state != DEAD && cooldown == 0;
 }
+
+int Zombie::getWidth()  const { return ZOMBIE_WALK_WIDTH; }
+int Zombie::getHeight() const { return ZOMBIE_WALK_HEIGHT; }
 
 void Zombie::resetCooldown() {
     cooldown = HIT_DELAY;

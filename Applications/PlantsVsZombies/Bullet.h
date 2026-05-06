@@ -14,9 +14,14 @@ public:
 
     int getX();
     int getY();
+    int getSpawnX() const;
+    virtual int getWidth()  const = 0;
+    virtual int getHeight() const = 0;
+    virtual int getDamage() const = 0;
 
 protected:
     int x, y;
+    int spawnX;
     bool active;
 };
 

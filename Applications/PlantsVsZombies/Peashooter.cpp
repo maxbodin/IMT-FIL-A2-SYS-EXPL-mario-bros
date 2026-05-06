@@ -27,6 +27,7 @@ void Peashooter::render() {
 
 bool Peashooter::canShoot() const {
     return state == ALIVE && cooldown == 0;
+    // return false; // pour tester les zombies
 }
 
 void Peashooter::resetCooldown() {
