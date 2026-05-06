@@ -12,6 +12,7 @@
 #define MAX_ZOMBIES 5
 
 #define COLLISION_DISTANCE 5
+#define ZOMBIE_DAMAGE      25
 
 class PlantsVsZombies {
 public:

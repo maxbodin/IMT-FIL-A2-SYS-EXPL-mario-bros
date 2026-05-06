@@ -19,3 +19,7 @@ void PeashooterBullet::render() {
 void PeashooterBullet::erase() {
     plot_square(x, y, PEASHOOTER_BULLET_WIDTH, 0);
 }
+
+int PeashooterBullet::getWidth()  const { return PEASHOOTER_BULLET_WIDTH; }
+int PeashooterBullet::getHeight() const { return PEASHOOTER_BULLET_HEIGHT; }
+int PeashooterBullet::getDamage() const { return DAMAGE; }

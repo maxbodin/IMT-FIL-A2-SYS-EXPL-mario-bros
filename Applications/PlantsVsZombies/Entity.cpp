@@ -7,7 +7,7 @@ Entity::Entity(int x, int y, int hp)
     : _id(nextId++), x(x), y(y), hp(hp), maxHp(hp), state(ALIVE) {}
 
 void Entity::takeDamage(int amount) {
-    if (state != ALIVE) return;
+    if (state == DYING || state == DEAD) return;
     hp -= amount;
     if (hp <= 0) {
         hp = 0;

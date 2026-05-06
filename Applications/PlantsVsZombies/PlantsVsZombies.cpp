@@ -28,11 +28,16 @@ void PlantsVsZombies::init(Ecran* e,Clavier* c) {
     clear_vga_screen(0);
 }
 
+static bool aabb(int ax, int ay, int aw, int ah,
+                 int bx, int by, int bw, int bh) {
+    return ax < bx + bw && ax + aw > bx
+        && ay < by + bh && ay + ah > by;
+}
+
 void PlantsVsZombies::update_screen() {
-    
-    // update plants + spawn bullets
+
+    // --- Plants: update + spawn bullets + remove dead ---
     for (int i = 0; i < plantCount; i++) {
-        if (!plants[i]) continue;
         plants[i]->update();
         if (plants[i]->isDead()) {
             delete plants[i];
@@ -42,33 +47,55 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
         if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
-            int bx = plants[i]->getX() + plants[i]->getWidth();
-            int by = plants[i]->getY() + plants[i]->getHeight() / 2;
+            int bx = plants[i]->getX();
+            int by = plants[i]->getY() + plants[i]->getHeight() / 4;
             bullets[bulletCount++] = new PeashooterBullet(bx, by);
             plants[i]->resetCooldown();
         }
     }
 
-    // update zombies
+    // --- Zombies: block/unblock + damage plant + update + remove dead ---
     for (int i = 0; i < zombieCount; i++) {
-        if (!zombies[i]) continue;
-        bool inFront = false;
+        bool blocked = false;
         for (int p = 0; p < plantCount; p++) {
-            if (!plants[p]) continue;
             int dx = zombies[i]->getX() - (plants[p]->getX() + plants[p]->getWidth());
-            if (dx >= 0 && dx < COLLISION_DISTANCE)  {
-                inFront = true;
+            int dy = zombies[i]->getY() - plants[p]->getY();
+            if (dy < 0) dy = -dy;
+            if (dx >= 0 && dx < COLLISION_DISTANCE && dy < Grid::TILE_SIZE) {
+                blocked = true;
+                if (zombies[i]->canHit()) {
+                    plants[p]->takeDamage(ZOMBIE_DAMAGE);
+                    zombies[i]->resetCooldown();
+                }
                 break;
             }
         }
-        inFront ? zombies[i]->block() : zombies[i]->unblock();
+        blocked ? zombies[i]->block() : zombies[i]->unblock();
         zombies[i]->update();
+        if (zombies[i]->isDead()) {
+            delete zombies[i];
+            zombies[i] = zombies[--zombieCount];
+            zombies[zombieCount] = 0;
+            i--;
+        }
     }
 
-    // update bullets, supprimer inactives
+    // --- Bullets: update + collision vs zombies + remove inactive ---
     for (int i = 0; i < bulletCount; i++) {
-        //bullets[i]->erase();
         bullets[i]->update();
+        if (bullets[i]->isActive()
+                && bullets[i]->getX() > bullets[i]->getSpawnX() + COLLISION_DISTANCE) {
+            for (int z = 0; z < zombieCount; z++) {
+                if (aabb(bullets[i]->getX(),  bullets[i]->getY(),
+                         bullets[i]->getWidth(), bullets[i]->getHeight(),
+                         zombies[z]->getX(),  zombies[z]->getY(),
+                         zombies[z]->getWidth(), zombies[z]->getHeight())) {
+                    zombies[z]->takeDamage(bullets[i]->getDamage());
+                    bullets[i]->deactivate();
+                    break;
+                }
+            }
+        }
         if (!bullets[i]->isActive()) {
             delete bullets[i];
             bullets[i] = bullets[--bulletCount];
