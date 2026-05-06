@@ -2,21 +2,26 @@
 #include <Applications/PlantsVsZombies/PeashooterBullet.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
 #include <sextant/memoire/memoire.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
     for (int i = 0; i < MAX_BULLETS; i++)
         bullets[i] = 0;
+    for (int i = 0; i < MAX_ZOMBIES; i++)
+        zombies[i] = 0;
 }
 
 void PlantsVsZombies::init(Ecran* e,Clavier* c) {
     ecran = e;
     clavier = c;
+
+    backbuffer = (unsigned char*) getmem(320 * 200);
 
     set_vga_mode13();
     set_palette_vga(shared_palette);
@@ -24,7 +29,8 @@ void PlantsVsZombies::init(Ecran* e,Clavier* c) {
 }
 
 void PlantsVsZombies::update_screen() {
-    // update plants + spawn bullets + supprimer mortes
+    
+    // update plants + spawn bullets
     for (int i = 0; i < plantCount; i++) {
         if (!plants[i]) continue;
         plants[i]->update();
@@ -43,9 +49,25 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
+    // update zombies
+    for (int i = 0; i < zombieCount; i++) {
+        if (!zombies[i]) continue;
+        bool inFront = false;
+        for (int p = 0; p < plantCount; p++) {
+            if (!plants[p]) continue;
+            int dx = zombies[i]->getX() - (plants[p]->getX() + PEASHOOTER_WIDTH);
+            if (dx >= 0 && dx < COLLISION_DISTANCE)  {
+                inFront = true;
+                break;
+            }
+        }
+        inFront ? zombies[i]->block() : zombies[i]->unblock();
+        zombies[i]->update();
+    }
+
     // update bullets, supprimer inactives
     for (int i = 0; i < bulletCount; i++) {
-        bullets[i]->erase();
+        //bullets[i]->erase();
         bullets[i]->update();
         if (!bullets[i]->isActive()) {
             delete bullets[i];
@@ -56,11 +78,27 @@ void PlantsVsZombies::update_screen() {
     }
 
     // rendu : fond puis entités
+    unsigned char* real_video = (unsigned char*) video;
+    video = backbuffer;
+
+    clear_vga_screen(0); 
     grid.render();
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
     for (int i = 0; i < bulletCount; i++)
         if (bullets[i]) bullets[i]->render();
+    for (int i = 0; i < zombieCount; i++)
+        if (zombies[i]) zombies[i]->render();
+
+    // compteurs
+    draw_number(lastSeconds, 0, 2, 15, 2);
+    draw_number(lastFps, 290, 2, 15, 2);
+
+    unsigned char* src = backbuffer;
+    unsigned char* dst = real_video;
+    for (int i = 0; i < 320 * 200; i++)
+        dst[i] = src[i];
+    video = real_video;
 }
 
 void PlantsVsZombies::start() {
@@ -71,6 +109,12 @@ void PlantsVsZombies::start() {
     plants[0] = new Peashooter(px, py);
     plantCount = 1;
     plants[0]->render();
+
+    int zx, zy;
+    grid.tileToPixel(8, 0, zx, zy);
+    zombies[0] = new Zombie(zx, zy);
+    zombieCount = 1;
+    zombies[0]->render();
 
     int lastTick  = compt;
     int renderFrames = 0;
@@ -91,19 +135,10 @@ void PlantsVsZombies::start() {
         }
 
         if (compt - fpsTimer >= 1000) {
-            fps          = renderFrames;
+            lastFps      = renderFrames;
+            lastSeconds  = compt / 1000;
             renderFrames = 0;
             fpsTimer     = compt;
-
-            int seconds = compt / 1000;
-
-            // secondes écoulées
-            plot_square(0, 0, 14, 0);
-            draw_number(seconds, 0, 2, 15, 2);
-
-            // FPS
-            plot_square(290, 0, 30, 0);
-            draw_number(fps, 290, 2, 15, 2);
         }
     }
 }
