@@ -17,6 +17,10 @@ public:
     EntityState getState() const;
     int getX() const;
     int getY() const;
+
+    virtual int getWidth() const;
+    virtual int getHeight() const;
+    
     int getHp() const;
     int getMaxHp() const;
 

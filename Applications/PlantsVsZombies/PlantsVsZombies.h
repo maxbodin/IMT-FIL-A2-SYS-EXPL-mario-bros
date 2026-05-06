@@ -11,7 +11,7 @@
 #define MAX_BULLETS 90
 #define MAX_ZOMBIES 5
 
-#define COLLISION_DISTANCE 20
+#define COLLISION_DISTANCE 5
 
 class PlantsVsZombies {
 public:

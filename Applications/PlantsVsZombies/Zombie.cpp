@@ -20,7 +20,7 @@ void Zombie::update() {
 
     if (++animTick >= ANIM_SPEED) {
         animTick = 0;
-        frame = (frame + 1) % ZOMBIE_FRAMES;
+        frame = (frame + 1) % ZOMBIE_WALK_FRAMES;
         if (frame == 1 || frame == 5) {
             x -= 5; 
         }
@@ -30,6 +30,7 @@ void Zombie::update() {
 void Zombie::render() {
     if (state == DEAD) return;
     draw_sprite(zombie_walk_frames[frame], ZOMBIE_WALK_WIDTH, ZOMBIE_WALK_HEIGHT, x, y);
+    renderHpBar(ZOMBIE_WALK_WIDTH / 2, ZOMBIE_WALK_HEIGHT);
 }
 
 bool Zombie::canHit() const {

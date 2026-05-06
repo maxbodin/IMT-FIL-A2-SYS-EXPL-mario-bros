@@ -42,8 +42,8 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
         if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
-            int bx = plants[i]->getX() + PEASHOOTER_WIDTH;
-            int by = plants[i]->getY() + PEASHOOTER_HEIGHT / 2;
+            int bx = plants[i]->getX() + plants[i]->getWidth();
+            int by = plants[i]->getY() + plants[i]->getHeight() / 2;
             bullets[bulletCount++] = new PeashooterBullet(bx, by);
             plants[i]->resetCooldown();
         }
@@ -55,7 +55,7 @@ void PlantsVsZombies::update_screen() {
         bool inFront = false;
         for (int p = 0; p < plantCount; p++) {
             if (!plants[p]) continue;
-            int dx = zombies[i]->getX() - (plants[p]->getX() + PEASHOOTER_WIDTH);
+            int dx = zombies[i]->getX() - (plants[p]->getX() + plants[p]->getWidth());
             if (dx >= 0 && dx < COLLISION_DISTANCE)  {
                 inFront = true;
                 break;
@@ -77,12 +77,13 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
-    // rendu : fond puis entités
+    // Rendering
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
     clear_vga_screen(0); 
     grid.render();
+
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
     for (int i = 0; i < bulletCount; i++)

@@ -22,7 +22,7 @@ void Peashooter::update() {
 void Peashooter::render() {
     if (state == DEAD) return;
     draw_sprite(peashooter_frames[frame], PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT, x, y);
-    renderHpBar(PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT);
+    renderHpBar(PEASHOOTER_WIDTH / 2, PEASHOOTER_HEIGHT);
 }
 
 bool Peashooter::canShoot() const {
@@ -31,4 +31,12 @@ bool Peashooter::canShoot() const {
 
 void Peashooter::resetCooldown() {
     cooldown = SHOOT_DELAY;
+}
+
+int Peashooter::getWidth() const {
+    return PEASHOOTER_WIDTH;
+}
+
+int Peashooter::getHeight() const {
+    return PEASHOOTER_HEIGHT;
 }
