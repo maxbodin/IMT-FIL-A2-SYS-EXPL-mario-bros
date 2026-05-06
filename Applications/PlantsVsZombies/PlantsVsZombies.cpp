@@ -34,6 +34,13 @@ void PlantsVsZombies::update_screen() {
     for (int i = 0; i < plantCount; i++) {
         if (!plants[i]) continue;
         plants[i]->update();
+        if (plants[i]->isDead()) {
+            delete plants[i];
+            plants[i] = plants[--plantCount];
+            plants[plantCount] = 0;
+            i--;
+            continue;
+        }
         if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
             int bx = plants[i]->getX() + PEASHOOTER_WIDTH;
             int by = plants[i]->getY() + PEASHOOTER_HEIGHT / 2;

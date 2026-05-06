@@ -22,6 +22,7 @@ void Peashooter::update() {
 void Peashooter::render() {
     if (state == DEAD) return;
     draw_sprite(peashooter_frames[frame], PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT, x, y);
+    renderHpBar(PEASHOOTER_WIDTH, PEASHOOTER_HEIGHT);
 }
 
 bool Peashooter::canShoot() const {
