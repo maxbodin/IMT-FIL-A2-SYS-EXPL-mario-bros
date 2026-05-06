@@ -1,0 +1,10 @@
+#ifndef ZOMBIE_FIGHT_H
+#define ZOMBIE_FIGHT_H
+
+#define ZOMBIE_FIGHT_WIDTH  31
+#define ZOMBIE_FIGHT_HEIGHT 47
+#define ZOMBIE_FIGHT_FRAMES 7
+
+extern unsigned char zombie_fight_frames[ZOMBIE_FIGHT_FRAMES][ZOMBIE_FIGHT_WIDTH*ZOMBIE_FIGHT_HEIGHT];
+
+#endif

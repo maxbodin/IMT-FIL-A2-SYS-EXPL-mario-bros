@@ -1,6 +1,6 @@
 #include "zombie_walk_sprite.h"
 
-unsigned char zombie_walk_frames[ZOMBIE_FRAMES][ZOMBIE_WALK_WIDTH*ZOMBIE_WALK_HEIGHT] = {
+unsigned char zombie_walk_frames[ZOMBIE_WALK_FRAMES][ZOMBIE_WALK_WIDTH*ZOMBIE_WALK_HEIGHT] = {
   { // frame 0
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
