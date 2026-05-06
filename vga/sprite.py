@@ -69,7 +69,8 @@ def png_to_c(path, external_palette=None,
              array_name="sprite_data",
              width_name="SPRITE_WIDTH",
              height_name="SPRITE_HEIGHT",
-             palette_name="palette_vga"):
+             palette_name="palette_vga",
+             out_dir=None):
     im = Image.open(path)
 
     # Chargement et application de la palette externe si fournie
@@ -124,7 +125,8 @@ def png_to_c(path, external_palette=None,
     
     import os
     base = os.path.splitext(os.path.basename(path))[0]
-    out_dir = os.path.dirname(path)
+    if out_dir is None:
+        out_dir = os.path.dirname(path)
     guard = base.upper() + "_SPRITE_H"
     header_path = os.path.join(out_dir, base + "_sprite.h")
     source_path = os.path.join(out_dir, base + "_sprite.cpp")
@@ -154,7 +156,7 @@ def png_to_c(path, external_palette=None,
         f.write("};\n")
     print(f"[i] Source généré  : {source_path}", file=sys.stderr)
 
-def dir_to_c(dirpath, external_palette=None):
+def dir_to_c(dirpath, external_palette=None, out_dir=None):
     """Convertit un dossier de PNGs numérotés en tableau d'animation C."""
     import os, re
 
@@ -167,7 +169,8 @@ def dir_to_c(dirpath, external_palette=None):
         sys.exit(1)
 
     base = os.path.basename(dirpath.rstrip('/\\'))
-    out_dir = dirpath
+    if out_dir is None:
+        out_dir = dirpath
 
     # Charger la palette externe une fois
     if external_palette:
@@ -242,14 +245,21 @@ def dir_to_c(dirpath, external_palette=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert PNG(s) to C arrays for VGA.")
     parser.add_argument('-p', '--palette', help="Fichier de palette externe (.pal ou .gpl)")
+    parser.add_argument('-o', '--output', help="Dossier de sortie pour les fichiers générés (défaut: même dossier que l'entrée)")
     parser.add_argument('image', help="Chemin vers une image PNG ou un dossier de PNGs numérotés")
     args = parser.parse_args()
 
     import os
+
+    out_dir = args.output
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
     if os.path.isdir(args.image):
-        dir_to_c(args.image, external_palette=args.palette)
+        dir_to_c(args.image, external_palette=args.palette, out_dir=out_dir)
     else:
         base = os.path.splitext(os.path.basename(args.image))[0]
+        src_dir = out_dir if out_dir else os.path.dirname(args.image)
         png_to_c(
             args.image,
             external_palette=args.palette,
@@ -257,4 +267,5 @@ if __name__ == "__main__":
             width_name=f"{base.upper()}_WIDTH",
             height_name=f"{base.upper()}_HEIGHT",
             palette_name=f"{base}_palette",
+            out_dir=src_dir,
         )
