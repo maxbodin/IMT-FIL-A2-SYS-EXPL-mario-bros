@@ -17,12 +17,17 @@ public:
     EntityState getState() const;
     int getX() const;
     int getY() const;
+    int getHp() const;
+    int getMaxHp() const;
+
+    void renderHpBar(int barW, int spriteH) const;
 
 protected:
     int _id;
     int x;
     int y;
     int hp;
+    int maxHp;
     EntityState state;
 
 private:

@@ -1,9 +1,10 @@
 #include <Applications/PlantsVsZombies/Entity.h>
+#include <vga/vga.h>
 
 int Entity::nextId = 0;
 
 Entity::Entity(int x, int y, int hp)
-    : _id(nextId++), x(x), y(y), hp(hp), state(ALIVE) {}
+    : _id(nextId++), x(x), y(y), hp(hp), maxHp(hp), state(ALIVE) {}
 
 void Entity::takeDamage(int amount) {
     if (state != ALIVE) return;

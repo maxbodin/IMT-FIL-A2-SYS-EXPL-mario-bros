@@ -154,7 +154,7 @@ def png_to_c(path, external_palette=None,
         f.write("};\n")
     print(f"[i] Source généré  : {source_path}", file=sys.stderr)
 
-def dir_to_c(dirpath, external_palette=None):
+def dir_to_c(dirpath, external_palette=None, out_dir=None):
     """Convertit un dossier de PNGs numérotés en tableau d'animation C."""
     import os, re
 
@@ -167,7 +167,8 @@ def dir_to_c(dirpath, external_palette=None):
         sys.exit(1)
 
     base = os.path.basename(dirpath.rstrip('/\\'))
-    out_dir = dirpath
+    if out_dir is None:
+        out_dir = dirpath
 
     # Charger la palette externe une fois
     if external_palette:

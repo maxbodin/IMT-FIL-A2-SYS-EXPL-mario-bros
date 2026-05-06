@@ -29,6 +29,4 @@ extern "C" void Sextant_main(unsigned long magic, unsigned long addr){
 	pvzgame.init(&Ecran(), &clavier);
 	pvzgame.start();
 
-	while (true) {
-	}
 }
