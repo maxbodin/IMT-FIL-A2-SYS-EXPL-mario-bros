@@ -144,6 +144,30 @@ void draw_number(int n, int x, int y, unsigned char color, int scale) {
     }
 }
 
+// palette: 205=(41,63,44) green, 40=(45,30,10) orange, 50=(23,1,0) red, 1=(4,4,4) dark border
+void draw_hp_bar(int x, int y, int w, int hp, int maxHp) {
+    if (maxHp <= 0) return;
+    int filled = (hp * w) / maxHp;
+    if (filled < 0) filled = 0;
+    if (filled > w) filled = w;
+
+    unsigned char fill_color;
+    int pct = (hp * 100) / maxHp;
+    if (pct <= 10)      fill_color = 50;
+    else if (pct <= 30) fill_color = 40;
+    else                fill_color = 205;
+
+    for (int col = 0; col < w; col++)
+        video[(y - 1) * 320 + x + col] = 1;
+    for (int row = 0; row < 3; row++) {
+        int base = (y + row) * 320 + x;
+        for (int col = 0; col < w; col++)
+            video[base + col] = (col < filled) ? fill_color : 1;
+    }
+    for (int col = 0; col < w; col++)
+        video[(y + 3) * 320 + x + col] = 1;
+}
+
 // Draw a w×h sprite at (dstX, dstY), skipping color 255
 void draw_sprite(const unsigned char* sprite,
                  int w, int h,
