@@ -45,6 +45,16 @@ void PlantsVsZombies::update_screen() {
     // update zombies
     for (int i = 0; i < zombieCount; i++) {
         if (!zombies[i]) continue;
+        bool inFront = false;
+        for (int p = 0; p < plantCount; p++) {
+            if (!plants[p]) continue;
+            int dx = zombies[i]->getX() - (plants[p]->getX() + PEASHOOTER_WIDTH);
+            if (dx >= 0 && dx < COLLISION_DISTANCE)  {
+                inFront = true;
+                break;
+            }
+        }
+        inFront ? zombies[i]->block() : zombies[i]->unblock();
         zombies[i]->update();
     }
 

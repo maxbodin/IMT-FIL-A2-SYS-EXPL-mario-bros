@@ -11,6 +11,8 @@
 #define MAX_BULLETS 90
 #define MAX_ZOMBIES 5
 
+#define COLLISION_DISTANCE 20
+
 class PlantsVsZombies {
 public:
     PlantsVsZombies();
