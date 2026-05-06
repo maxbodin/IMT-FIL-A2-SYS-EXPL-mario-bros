@@ -1,7 +1,7 @@
 #ifndef ENTITY_H
 #define ENTITY_H
 
-enum EntityState { ALIVE, DYING, DEAD };
+enum EntityState { ALIVE, DYING, DEAD, BLOCKED };
 
 class Entity {
 public:
