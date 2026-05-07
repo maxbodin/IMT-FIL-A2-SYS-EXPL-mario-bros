@@ -8,6 +8,53 @@
 
 extern volatile int compt;
 
+bool PlantsVsZombies::canAfford(int cost) const { return suns >= cost; }
+
+void PlantsVsZombies::spendSuns(int cost) { if (suns >= cost) suns -= cost; }
+
+void PlantsVsZombies::addSuns(int amount) { suns += amount; }
+
+// Palette indices (shared_palette) : 1=gris foncé, 3=gris clair, 15=blanc, 25=jaune, 205=vert
+static const unsigned char SUN_HUD_BG     =   1;
+static const unsigned char SUN_HUD_TEXT   =  15;
+static const unsigned char SUN_HUD_YELLOW =  25;
+static const unsigned char SUN_HUD_GREEN  = 205;
+
+// Dessine un "+" 3×3 pixels (à l'échelle scale)
+static void draw_plus(int x, int y, unsigned char color, int scale) {
+    plot_square(x + scale, y,          scale, color); // haut
+    plot_square(x,         y + scale,  scale, color); // gauche
+    plot_square(x + scale, y + scale,  scale, color); // centre
+    plot_square(x + scale*2, y + scale,scale, color); // droite
+    plot_square(x + scale, y + scale*2,scale, color); // bas
+}
+
+void PlantsVsZombies::drawSunHud() {
+    // Panneau centré : x=120, y=1, 80×20 px
+    const int px = 120, py = 1, pw = 80, ph = 20;
+    for (int row = 0; row < ph; row++)
+        for (int col = 0; col < pw; col++)
+            video[(py + row) * 320 + (px + col)] = SUN_HUD_BG;
+
+    // Bordures pour délimiter le panneau
+    for (int col = 0; col < pw; col++) {
+        video[py * 320 + (px + col)]            = 3;
+        video[(py + ph - 1) * 320 + (px + col)] = 3;
+    }
+
+    // Icône soleil placeholder 14×14 (sera remplacée par draw_sprite)
+    plot_square(px + 4, py + 3, 14, SUN_HUD_YELLOW);
+
+    // Nombre de soleils
+    draw_number(suns, px + 22, py + 6, SUN_HUD_TEXT, 2);
+
+    // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain
+    if (compt < sunGainDisplayEnd) {
+        draw_plus(px + 52, py + 6, SUN_HUD_GREEN, 2);
+        draw_number(SUN_TICK_AMOUNT, px + 60, py + 6, SUN_HUD_GREEN, 2);
+    }
+}
+
 PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
@@ -35,6 +82,13 @@ static bool aabb(int ax, int ay, int aw, int ah,
 }
 
 void PlantsVsZombies::update_screen() {
+
+    // --- Gain automatique de soleils ---
+    if (compt - lastSunTick >= SUN_TICK_INTERVAL) {
+        addSuns(SUN_TICK_AMOUNT);
+        lastSunTick       = compt;
+        sunGainDisplayEnd = compt + SUN_DISPLAY_DURATION;
+    }
 
     // --- Plants: update + spawn bullets + remove dead ---
     for (int i = 0; i < plantCount; i++) {
@@ -122,6 +176,8 @@ void PlantsVsZombies::update_screen() {
     draw_number(lastSeconds, 0, 2, 15, 2);
     draw_number(lastFps, 290, 2, 15, 2);
 
+    drawSunHud();
+
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
     for (int i = 0; i < 320 * 200; i++)
@@ -143,6 +199,8 @@ void PlantsVsZombies::start() {
     zombies[0] = new Zombie(zx, zy);
     zombieCount = 1;
     zombies[0]->render();
+
+    lastSunTick = compt; // premier gain après SUN_TICK_INTERVAL depuis le lancement
 
     int lastTick  = compt;
     int renderFrames = 0;
