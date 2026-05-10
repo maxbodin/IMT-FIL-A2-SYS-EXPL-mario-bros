@@ -7,6 +7,7 @@ class Peashooter : public Entity {
 public:
     static const int HP          = 300;
     static const int SHOOT_DELAY = 150; // ticks entre chaque tir
+    static const int COST        = 100; // soleils nécessaires pour placer
 
     Peashooter(int x, int y);
 
