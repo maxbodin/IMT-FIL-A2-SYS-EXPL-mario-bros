@@ -3,10 +3,16 @@
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
+#include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
+
+/* Couleurs des curseurs (indices dans shared_palette).
+   P1 = blanc (index 15), P2 = vert (index 205, même teinte que la barre de vie). */
+#define CURSOR_P1_COLOR 15
+#define CURSOR_P2_COLOR 205
 
 PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
@@ -49,8 +55,11 @@ void PlantsVsZombies::update_screen() {
         if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
-            bullets[bulletCount++] = new PeashooterBullet(bx, by);
-            plants[i]->resetCooldown();
+            PeashooterBullet* b = new PeashooterBullet(bx, by);
+            if (b) {
+                bullets[bulletCount++] = b;
+                plants[i]->resetCooldown();
+            }
         }
     }
 
@@ -118,6 +127,9 @@ void PlantsVsZombies::update_screen() {
     for (int i = 0; i < zombieCount; i++)
         if (zombies[i]) zombies[i]->render();
 
+    drawCursor(cursorCol,  cursorRow,  CURSOR_P1_COLOR);
+    drawCursor(cursorCol2, cursorRow2, CURSOR_P2_COLOR);
+
     // compteurs
     draw_number(lastSeconds, 0, 2, 15, 2);
     draw_number(lastFps, 290, 2, 15, 2);
@@ -129,35 +141,114 @@ void PlantsVsZombies::update_screen() {
     video = real_video;
 }
 
-void PlantsVsZombies::start() {
-    grid.render();
+/* [EXPLICATION] Architecture producteur / consommateur.
+   Le handler IRQ1 (producteur) push() les événements dans keyboardQueue.
+   handleInput() (consommateur) les pop() un par un.
 
+   Avantage : chaque appui physique génère exactement UN événement make dans
+   la file — pas de front montant à détecter, pas de problème typematique.
+   Le ring buffer absorbe les rafales de touches pressées entre deux frames.
+
+   Schéma de flux :
+     IRQ1 (IF=0)     →  push(scanCode, pressed)  →  keyboardQueue (ring buffer)
+     main loop (~62fps) →  while(pop(evt))         →  action curseur / placement
+
+   La section critique (disable_IRQs dans pop) protège tryP() contre V() en IRQ :
+   voir KeyboardQueue.cpp pour le détail.                                      */
+void PlantsVsZombies::handleInput() {
+    KeyEvent evt;
+
+    /* [EXPLICATION] On draine TOUS les événements accumulés depuis le dernier frame.
+       Si plusieurs touches ont été pressées pendant les ~16 ms inter-frames, elles
+       sont toutes traitées ici, dans l'ordre d'arrivée.                           */
+    while (keyboardQueue.pop(evt)) {
+        if (!evt.pressed) continue; /* on ignore les break (relâchement) */
+
+        /* --- Joueur 1 : ZQSD + Espace --- */
+        if      (evt.scanCode == SC_P1_UP)    cursorRow--;
+        else if (evt.scanCode == SC_P1_DOWN)  cursorRow++;
+        else if (evt.scanCode == SC_P1_LEFT)  cursorCol--;
+        else if (evt.scanCode == SC_P1_RIGHT) cursorCol++;
+        else if (evt.scanCode == SC_P1_PLACE) placePlant(cursorCol, cursorRow);
+
+        /* --- Joueur 2 : IJKL + O --- */
+        else if (evt.scanCode == SC_P2_UP)    cursorRow2--;
+        else if (evt.scanCode == SC_P2_DOWN)  cursorRow2++;
+        else if (evt.scanCode == SC_P2_LEFT)  cursorCol2--;
+        else if (evt.scanCode == SC_P2_RIGHT) cursorCol2++;
+        else if (evt.scanCode == SC_P2_PLACE) placePlant(cursorCol2, cursorRow2);
+    }
+
+    /* Borne les curseurs dans les limites de la grille. */
+    if (cursorCol < 0)            cursorCol = 0;
+    if (cursorCol >= Grid::COLS)  cursorCol = Grid::COLS - 1;
+    if (cursorRow < 0)            cursorRow = 0;
+    if (cursorRow >= Grid::ROWS)  cursorRow = Grid::ROWS - 1;
+
+    if (cursorCol2 < 0)           cursorCol2 = 0;
+    if (cursorCol2 >= Grid::COLS) cursorCol2 = Grid::COLS - 1;
+    if (cursorRow2 < 0)           cursorRow2 = 0;
+    if (cursorRow2 >= Grid::ROWS) cursorRow2 = Grid::ROWS - 1;
+}
+
+void PlantsVsZombies::placePlant(int col, int row) {
+    if (plantCount >= MAX_PLANTS) return;
+
+    /* [EXPLICATION] Vérification d'occupation de la case : on parcourt le tableau
+       des plantes existantes.  Pas besoin de section critique ici — placePlant
+       est toujours appelé depuis handleInput() dans la boucle principale,
+       donc en dehors de tout contexte d'interruption.  Les plantes ne sont
+       jamais créées ni détruites par un handler IRQ.                          */
     int px, py;
-    grid.tileToPixel(0, 0, px, py);
-    plants[0] = new Peashooter(px, py);
-    plantCount = 1;
-    plants[0]->render();
+    grid.tileToPixel(col, row, px, py);
+    for (int i = 0; i < plantCount; i++) {
+        if (plants[i] && plants[i]->getX() == px && plants[i]->getY() == py)
+            return;
+    }
 
+    Peashooter* p = new Peashooter(px, py);
+    if (p) plants[plantCount++] = p;
+}
+
+void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
+    int px, py;
+    grid.tileToPixel(col, row, px, py);
+
+    int w = Grid::TILE_SIZE;
+    int h = Grid::TILE_SIZE;
+
+    /* Bordure supérieure et inférieure. */
+    for (int x = px; x < px + w; x++) {
+        video[py * 320 + x]           = color;
+        video[(py + h - 1) * 320 + x] = color;
+    }
+    /* Bordure gauche et droite. */
+    for (int y = py; y < py + h; y++) {
+        video[y * 320 + px]           = color;
+        video[y * 320 + (px + w - 1)] = color;
+    }
+}
+
+void PlantsVsZombies::start() {
     int zx, zy;
     grid.tileToPixel(8, 0, zx, zy);
     zombies[0] = new Zombie(zx, zy);
     zombieCount = 1;
-    zombies[0]->render();
 
     int lastTick  = compt;
     int renderFrames = 0;
     int fpsTimer  = compt;
-    int fps       = 0;
 
     while (true) {
         while (compt == lastTick);
         lastTick = compt;
 
         if ((compt % 16) == 0) {
-            // plants[0]->update();
-            // grid.renderTile(0, 0);
-            // plants[0]->render();
-
+            /* [EXPLICATION] handleInput() draine la file d'événements clavier accumulés
+               depuis le dernier frame (~16 ms).  Grâce à l'architecture producteur/
+               consommateur, chaque appui physique génère exactement un événement make :
+               pas de répétition typematique, pas de front montant à détecter.         */
+            handleInput();
             update_screen();
             renderFrames++;
         }
