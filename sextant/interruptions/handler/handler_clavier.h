@@ -1,7 +1,7 @@
 /*
  * handler_clavier.h
  *
- *  Created on: 8 ao�t 2008
+ *  Created on: 8 ao�t 2008
  *      Author: jmenaud
  */
 
@@ -62,6 +62,30 @@
 #define K49 'n'
 #define K50 ','
 
+/* [EXPLICATION] Scan codes physiques des touches de jeu (indépendants du layout clavier).
+   Un scan code identifie la POSITION physique de la touche sur le clavier,
+   pas le caractère imprimé — ce qui permet un fonctionnement correct
+   quelle que soit la disposition (AZERTY, QWERTY…).                        */
+
+/* Joueur 1 : ZQSD + Espace */
+#define SC_P1_UP    17   /* touche physique W (QWERTY) = Z (AZERTY) */
+#define SC_P1_LEFT  30   /* touche physique A (QWERTY) = Q (AZERTY) */
+#define SC_P1_DOWN  31   /* touche physique S */
+#define SC_P1_RIGHT 32   /* touche physique D */
+#define SC_P1_PLACE 57   /* Espace */
+
+/* Joueur 2 : IJKL + O */
+#define SC_P2_UP    23   /* I */
+#define SC_P2_LEFT  36   /* J */
+#define SC_P2_DOWN  37   /* K */
+#define SC_P2_RIGHT 38   /* L */
+#define SC_P2_PLACE 24   /* O */
+
+/* [EXPLICATION] File d'événements clavier — architecture producteur/consommateur.
+   Le handler IRQ (producteur) push() les événements ; la boucle de jeu (consommateur)
+   les pop() via tryP() sous section critique (disable_IRQs).
+   Voir sextant/sync/KeyboardQueue.h pour le détail du protocole.                */
+#include <sextant/sync/KeyboardQueue.h>
 
 void handler_clavier(int irq);
 

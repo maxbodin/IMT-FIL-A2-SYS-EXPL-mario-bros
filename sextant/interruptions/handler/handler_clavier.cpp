@@ -15,6 +15,7 @@ char buf[256];
 bool modifBuf=false;
 
 
+
 static void reboot()
 {
 	ecrireOctet(0xfe, 0x64);
@@ -176,6 +177,20 @@ void handler_clavier(int irq) {
 	static int show_all = 0;
 	static int doit = 0;
 
+	/* [EXPLICATION] Producteur du ring buffer clavier.
+	   Le contrôleur PS/2 envoie :
+	     - scan code c  (c < 0x80)        quand une touche est ENFONCÉE (make),
+	     - scan code c | 0x80 (c >= 0x80) quand cette même touche est RELÂCHÉE (break).
+	   On pousse UN événement par IRQ dans la file circulaire.
+	   La boucle de jeu consommera ces événements un par un via pop().
+
+	   [DANGER] push() s'exécute avec IF=0 (contexte IRQ1) → accès exclusif garanti,
+	   aucune section critique supplémentaire nécessaire ici.                  */
+	if (c > 0 && c < 0x80)
+		keyboardQueue.push((unsigned char)c, true);
+	else if (c >= 0x80 && (c - 0x80) < 128)
+		keyboardQueue.push((unsigned char)(c - 0x80), false);
+
 	if(c == 1)/* 1 = ESC */
 		show_all = !show_all;
 	if(c == 60)/* 60 = F2 */
@@ -232,12 +247,6 @@ void handler_clavier(int irq) {
 		case TAB:
 			break;
 		case 0: break;
-		case 'q':
-		case 'Q':
-		case 'a':
-		case 'A':
-			reboot();
-			break;
 		default:
 			modifBuf = true;
 			buf[posBuf]=cc;
