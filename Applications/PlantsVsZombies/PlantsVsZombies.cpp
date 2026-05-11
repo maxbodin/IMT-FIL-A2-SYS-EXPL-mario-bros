@@ -3,6 +3,7 @@
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/snow_peashooter_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
@@ -21,6 +22,7 @@ static const unsigned char SUN_HUD_BG     =   1;
 static const unsigned char SUN_HUD_TEXT   =  15;
 static const unsigned char SUN_HUD_YELLOW =  25;
 static const unsigned char SUN_HUD_GREEN  = 205;
+static const unsigned char SUN_HUD_RED    =  32;
 
 // Dessine un "+" 3×3 pixels (à l'échelle scale)
 static void draw_plus(int x, int y, unsigned char color, int scale) {
@@ -38,17 +40,22 @@ void PlantsVsZombies::drawSunHud() {
         for (int col = 0; col < pw; col++)
             video[(py + row) * 320 + (px + col)] = SUN_HUD_BG;
 
+    // Nombre de soleils (rouge si pas assez)
+    bool sunFlash = compt < sunFlashEndTick;
+    unsigned char sunColor = sunFlash ? SUN_HUD_RED : SUN_HUD_TEXT;
+    unsigned char borderColor = sunFlash ? SUN_HUD_RED : (unsigned char)3;
+
     // Bordures pour délimiter le panneau
     for (int col = 0; col < pw; col++) {
-        video[py * 320 + (px + col)]            = 3;
-        video[(py + ph - 1) * 320 + (px + col)] = 3;
+        video[py * 320 + (px + col)]            = borderColor;
+        video[(py + ph - 1) * 320 + (px + col)] = borderColor;
     }
 
-    // Icône soleil placeholder 14×14 (sera remplacée par draw_sprite)
+    // Icône soleil placeholder 14×14
     plot_square(px + 4, py + 3, 14, SUN_HUD_YELLOW);
 
     // Nombre de soleils
-    draw_number(suns, px + 22, py + 6, SUN_HUD_TEXT, 2);
+    draw_number(suns, px + 22, py + 6, sunColor, 2);
 
     // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain
     if (compt < sunGainDisplayEnd) {
@@ -61,7 +68,7 @@ void PlantsVsZombies::drawSunHud() {
 #define CURSOR_P1_COLOR 15
 #define CURSOR_P2_COLOR 205
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0), dmgIndicatorCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
     for (int i = 0; i < MAX_BULLETS; i++)
@@ -153,8 +160,17 @@ void PlantsVsZombies::update_screen() {
                          bullets[i]->getWidth(), bullets[i]->getHeight(),
                          zombies[z]->getX(),  zombies[z]->getY(),
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
+                    int dmg = bullets[i]->getDamage();
                     bullets[i]->onHit(*zombies[z]);
                     bullets[i]->deactivate();
+                    /* Damage indicator */
+                    if (dmgIndicatorCount < MAX_DMG_INDICATORS) {
+                        dmgIndicators[dmgIndicatorCount].x = zombies[z]->getX();
+                        dmgIndicators[dmgIndicatorCount].y = zombies[z]->getY() - 4;
+                        dmgIndicators[dmgIndicatorCount].value = dmg;
+                        dmgIndicators[dmgIndicatorCount].endTick = compt + DMG_INDICATOR_DURATION;
+                        dmgIndicatorCount++;
+                    }
                     break;
                 }
             }
@@ -189,6 +205,27 @@ void PlantsVsZombies::update_screen() {
     draw_number(lastFps, 290, 2, 15, 2);
 
     drawSunHud();
+
+    /* Damage indicators */
+    for (int i = 0; i < dmgIndicatorCount; i++) {
+        if (compt < dmgIndicators[i].endTick) {
+            int elapsed = DMG_INDICATOR_DURATION - (dmgIndicators[i].endTick - compt);
+            int floatY  = dmgIndicators[i].y - (elapsed / 50);
+            draw_number(dmgIndicators[i].value, dmgIndicators[i].x, floatY, SUN_HUD_YELLOW, 1);
+        } else {
+            dmgIndicatorCount--;
+            if (i < dmgIndicatorCount) {
+                dmgIndicators[i] = dmgIndicators[dmgIndicatorCount];
+            }
+            i--;
+        }
+    }
+
+    /* Mise à jour et affichage des files de plantes */
+    queue1.update();
+    queue2.update();
+    drawQueueHud(queue1, 2,  186, CURSOR_P1_COLOR);
+    drawQueueHud(queue2, 200, 186, CURSOR_P2_COLOR);
 
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
@@ -225,14 +262,48 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P1_DOWN)  cursorRow++;
         else if (evt.scanCode == SC_P1_LEFT)  cursorCol--;
         else if (evt.scanCode == SC_P1_RIGHT) cursorCol++;
-        else if (evt.scanCode == SC_P1_PLACE) placePlant(cursorCol, cursorRow, PLANT_PEASHOOTER);
+        else if (evt.scanCode == SC_P1_PLACE) {
+            int idx = queue1.getRosterCursor();
+            if (idx >= queue1.getCount()) {
+                queue1.triggerFlash();
+            } else {
+                PlantType type = queue1.getSlot(idx);
+                if (!canAfford(PlantQueue::costOf(type))) {
+                    sunFlashEndTick = compt + QUEUE_EMPTY_FLASH;
+                    queue1.triggerFlash();
+                } else if (placePlant(cursorCol, cursorRow, type)) {
+                    PlantType taken;
+                    queue1.tryTake(idx, taken);
+                }
+            }
+        }
+        /* Curseur roster P1 : W / X */
+        else if (evt.scanCode == SC_P1_ROSTER_LEFT)  queue1.moveRosterLeft();
+        else if (evt.scanCode == SC_P1_ROSTER_RIGHT) queue1.moveRosterRight();
 
         /* --- Joueur 2 : IJKL + O --- */
         else if (evt.scanCode == SC_P2_UP)    cursorRow2--;
         else if (evt.scanCode == SC_P2_DOWN)  cursorRow2++;
         else if (evt.scanCode == SC_P2_LEFT)  cursorCol2--;
         else if (evt.scanCode == SC_P2_RIGHT) cursorCol2++;
-        else if (evt.scanCode == SC_P2_PLACE) placePlant(cursorCol2, cursorRow2, PLANT_SNOW_PEASHOOTER);
+        else if (evt.scanCode == SC_P2_PLACE) {
+            int idx = queue2.getRosterCursor();
+            if (idx >= queue2.getCount()) {
+                queue2.triggerFlash();
+            } else {
+                PlantType type = queue2.getSlot(idx);
+                if (!canAfford(PlantQueue::costOf(type))) {
+                    sunFlashEndTick = compt + QUEUE_EMPTY_FLASH;
+                    queue2.triggerFlash();
+                } else if (placePlant(cursorCol2, cursorRow2, type)) {
+                    PlantType taken;
+                    queue2.tryTake(idx, taken);
+                }
+            }
+        }
+        /* Curseur roster P2 : Y / U */
+        else if (evt.scanCode == SC_P2_ROSTER_LEFT)  queue2.moveRosterLeft();
+        else if (evt.scanCode == SC_P2_ROSTER_RIGHT) queue2.moveRosterRight();
     }
 
     /* Borne les curseurs dans les limites de la grille. */
@@ -247,19 +318,17 @@ void PlantsVsZombies::handleInput() {
     if (cursorRow2 >= Grid::ROWS) cursorRow2 = Grid::ROWS - 1;
 }
 
-void PlantsVsZombies::placePlant(int col, int row, PlantType type) {
-    if (plantCount >= MAX_PLANTS) return;
+bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
+    if (plantCount >= MAX_PLANTS) return false;
 
-    /* [EXPLICATION] Vérification d'occupation de la case : on parcourt le tableau
-       des plantes existantes.  Pas besoin de section critique ici — placePlant
-       est toujours appelé depuis handleInput() dans la boucle principale,
-       donc en dehors de tout contexte d'interruption.  Les plantes ne sont
-       jamais créées ni détruites par un handler IRQ.                          */
+    int cost = PlantQueue::costOf(type);
+    if (!canAfford(cost)) return false;
+
     int px, py;
     grid.tileToPixel(col, row, px, py);
     for (int i = 0; i < plantCount; i++) {
         if (plants[i] && plants[i]->getX() == px && plants[i]->getY() == py)
-            return;
+            return false;
     }
 
     Peashooter* p = 0;
@@ -274,7 +343,12 @@ void PlantsVsZombies::placePlant(int col, int row, PlantType type) {
             break;
     }
     
-    if (p) plants[plantCount++] = p;
+    if (p) {
+        spendSuns(cost);
+        plants[plantCount++] = p;
+        return true;
+    }
+    return false;
 }
 
 void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
@@ -296,11 +370,82 @@ void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
     }
 }
 
+/* Retourne le sprite (frame 0) correspondant à un PlantType. */
+static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
+    switch (type) {
+        case PLANT_SNOW_PEASHOOTER:
+            w = SNOW_PEASHOOTER_WIDTH; 
+            h = SNOW_PEASHOOTER_HEIGHT;
+            return snow_peashooter_sprite_data;
+        case PLANT_PEASHOOTER:
+        default:
+            w = PEASHOOTER_WIDTH; 
+            h = PEASHOOTER_HEIGHT;
+            return peashooter_frames[0];
+    }
+}
+
+/* Affiche la file de plantes d'un joueur.
+   px, py : coin supérieur gauche du HUD. 
+   color : couleur du curseur roster. */
+void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color) {
+    const int ICON_H  = 12;
+    const int ICON_W  = 10;
+    const int COST_H  =  6;
+    const int SLOT_W  = ICON_W + 22;   // icon + espace + chiffres coût
+    const int SLOT_H  = ICON_H + 2;    // icon + 1px padding haut/bas
+    const int SLOT_GAP = 2;
+    bool flash = q.isFlashing();
+
+    for (int i = 0; i < QUEUE_CAPACITY; i++) {
+        int sx = px + i * (SLOT_W + SLOT_GAP);
+
+        /* Fond du slot */
+        unsigned char bg = (i < q.getCount())
+            ? (unsigned char)1
+            : (flash ? (unsigned char)32 : (unsigned char)0);
+        for (int r = 0; r < SLOT_H; r++)
+            for (int c = 0; c < SLOT_W; c++)
+                video[(py + r) * 320 + (sx + c)] = bg;
+
+        if (i < q.getCount()) {
+            /* Icône de plante (sprite mis à l'échelle) */
+            int srcW, srcH;
+            const unsigned char* spr = spriteForPlant(q.getSlot(i), srcW, srcH);
+            draw_sprite_scaled(spr, srcW, srcH,
+                               sx + 1, py + 1,
+                               ICON_W, ICON_H);
+
+            /* Coût en soleils à droite de l'icône */
+            draw_number(PlantQueue::costOf(q.getSlot(i)),
+                        sx + ICON_W + 2, py + (SLOT_H - COST_H) / 2,
+                        SUN_HUD_YELLOW, 1);
+
+            /* Surbrillance du slot sélectionné par le curseur roster */
+            if (i == q.getRosterCursor()) {
+                unsigned char borderCol = flash ? SUN_HUD_RED : color;
+                for (int c = sx; c < sx + SLOT_W; c++) {
+                    video[py * 320 + c]                  = borderCol;
+                    video[(py + SLOT_H - 1) * 320 + c]   = borderCol;
+                }
+                for (int r = py; r < py + SLOT_H; r++) {
+                    video[r * 320 + sx]                  = borderCol;
+                    video[r * 320 + (sx + SLOT_W - 1)]   = borderCol;
+                }
+            }
+        }
+    }
+}
+
 void PlantsVsZombies::start() {
-    int zx, zy;
-    grid.tileToPixel(8, 0, zx, zy);
-    zombies[0] = new Zombie(zx, zy);
+    /* Zombie spawns at right edge of screen, grid-aligned to row 0 */
+    int zy = Grid::OFFSET_Y + 0 * Grid::TILE_SIZE;
+    zombies[0] = new Zombie(320 - ZOMBIE_WALK_WIDTH, zy);
     zombieCount = 1;
+
+    /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
+    queue1.seed(2);
+    queue2.seed(2);
 
     lastSunTick = compt; // premier gain après SUN_TICK_INTERVAL depuis le lancement
 

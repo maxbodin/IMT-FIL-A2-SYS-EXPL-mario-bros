@@ -35,7 +35,7 @@ MV = mv -f
 
 KERNEL_OBJ   = sextant.elf
 
-OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_bullet_sprite snow_peashooter_sprite grass_tile_sprite Entity Bullet PeashooterBullet SnowPeaBullet Peashooter SnowPeashooter Grid Tile PlantsVsZombies Zombie zombie_walk_sprite zombie_fight_sprite Spinlock Semaphore KeyboardQueue
+OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_bullet_sprite snow_peashooter_sprite grass_tile_sprite Entity Bullet PeashooterBullet SnowPeaBullet Peashooter SnowPeashooter Grid Tile PlantsVsZombies PlantQueue Zombie zombie_walk_sprite zombie_fight_sprite Spinlock Semaphore KeyboardQueue
 
 
 OBJECTS=$(patsubst %,build/all-o/%.o,$(OBJECTSNAMES))					  		
@@ -82,16 +82,16 @@ clean:
 	$(DELE) build/boot/*.elf
 
 run: $(KERNEL_OBJ)
-	$(QEMU) -display curses -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso
+	$(QEMU) -display curses -serial file:serial.log -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso
 
 run_gui: $(KERNEL_OBJ)
-	$(QEMU) -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso -monitor stdio
+	$(QEMU) -serial file:serial.log -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso -monitor stdio
 
 debug: $(KERNEL_OBJ)
-	$(QEMU) -display curses -S -s  -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso
+	$(QEMU) -display curses -serial file:serial.log -S -s  -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso
 
 debug_gui: $(KERNEL_OBJ)
-	$(QEMU) -S -s  -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso -monitor stdio
+	$(QEMU) -serial file:serial.log -S -s  -net nic,model=ne2k_isa -net user,tftp=./build/boot -cdrom ./build/boot/grub.iso -monitor stdio
 
 show:
 	@echo "objects:$(OBJECTS)"
