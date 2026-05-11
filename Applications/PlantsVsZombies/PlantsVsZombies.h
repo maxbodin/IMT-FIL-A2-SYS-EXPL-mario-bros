@@ -3,9 +3,12 @@
 
 #include <Applications/PlantsVsZombies/Grid.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
+#include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
 #include <drivers/Clavier.h>
+
+enum PlantType { PLANT_PEASHOOTER, PLANT_SNOW_PEASHOOTER };
 
 #define MAX_PLANTS  45
 #define MAX_BULLETS 90
@@ -62,7 +65,7 @@ private:
 
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
-    void placePlant(int col, int row);
+    void placePlant(int col, int row, PlantType type);
 };
 
 #endif

@@ -1,0 +1,9 @@
+#ifndef SNOW_PEASHOOTER_SPRITE_H
+#define SNOW_PEASHOOTER_SPRITE_H
+
+#define SNOW_PEASHOOTER_WIDTH  28
+#define SNOW_PEASHOOTER_HEIGHT 32
+
+extern unsigned char snow_peashooter_sprite_data[SNOW_PEASHOOTER_WIDTH*SNOW_PEASHOOTER_HEIGHT];
+
+#endif
