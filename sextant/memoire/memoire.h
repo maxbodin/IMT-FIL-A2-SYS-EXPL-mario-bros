@@ -15,5 +15,6 @@ void freemem(int address,int size);
 
 void* operator new(long unsigned int);
 void operator delete(void * object);
+void operator delete(void * object, long unsigned int);
 
 #endif /* MEMOIRE_H_ */
