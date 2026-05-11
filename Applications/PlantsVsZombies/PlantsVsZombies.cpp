@@ -107,6 +107,11 @@ void PlantsVsZombies::update_screen() {
     for (int i = 0; i < plantCount; i++) {
         plants[i]->update();
         if (plants[i]->isDead()) {
+            int tc, tr;
+            if (grid.pixelToTile(plants[i]->getX(), plants[i]->getY(), tc, tr)) {
+                Tile* t = grid.getTile(tc, tr);
+                if (t) t->setState(TileState::Empty);
+            }
             delete plants[i];
             plants[i] = plants[--plantCount];
             plants[plantCount] = 0;
@@ -192,13 +197,17 @@ void PlantsVsZombies::update_screen() {
 
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
+
     for (int i = 0; i < bulletCount; i++)
         if (bullets[i]) bullets[i]->render();
+
     for (int i = 0; i < zombieCount; i++)
         if (zombies[i]) zombies[i]->render();
-
-    drawCursor(cursorCol,  cursorRow,  CURSOR_P1_COLOR);
-    drawCursor(cursorCol2, cursorRow2, CURSOR_P2_COLOR);
+        
+    unsigned char c1 = grid.isTileOccupied(cursorCol, cursorRow)   ? SUN_HUD_RED : CURSOR_P1_COLOR;
+    unsigned char c2 = grid.isTileOccupied(cursorCol2, cursorRow2) ? SUN_HUD_RED : CURSOR_P2_COLOR;
+    drawCursor(cursorCol,  cursorRow,  c1);
+    drawCursor(cursorCol2, cursorRow2, c2);
 
     // compteurs
     draw_number(lastSeconds, 0, 2, 15, 2);
@@ -324,12 +333,10 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     int cost = PlantQueue::costOf(type);
     if (!canAfford(cost)) return false;
 
+    if (grid.isTileOccupied(col, row)) return false;
+
     int px, py;
     grid.tileToPixel(col, row, px, py);
-    for (int i = 0; i < plantCount; i++) {
-        if (plants[i] && plants[i]->getX() == px && plants[i]->getY() == py)
-            return false;
-    }
 
     Peashooter* p = 0;
 
@@ -346,6 +353,8 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     if (p) {
         spendSuns(cost);
         plants[plantCount++] = p;
+        Tile* t = grid.getTile(col, row);
+        if (t) t->setState(TileState::HasPlant);
         return true;
     }
     return false;
