@@ -6,13 +6,13 @@
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
+#include <Applications/PlantsVsZombies/PlantQueue.h>
 #include <drivers/Clavier.h>
-
-enum PlantType { PLANT_PEASHOOTER, PLANT_SNOW_PEASHOOTER };
 
 #define MAX_PLANTS  45
 #define MAX_BULLETS 90
 #define MAX_ZOMBIES 5
+#define MAX_DMG_INDICATORS   16
 
 #define COLLISION_DISTANCE 5
 #define ZOMBIE_DAMAGE      25
@@ -21,6 +21,12 @@ enum PlantType { PLANT_PEASHOOTER, PLANT_SNOW_PEASHOOTER };
 #define SUN_TICK_INTERVAL   10000  // ticks entre chaque gain automatique (10 s à 1000 Hz)
 #define SUN_TICK_AMOUNT        25  // soleils gagnés à chaque intervalle
 #define SUN_DISPLAY_DURATION 2000  // durée d'affichage du "+Y" en ticks (2 s)
+
+#define DMG_INDICATOR_DURATION 400  // durée d'affichage en ticks (0.4 s)
+
+struct DmgIndicator {
+    int x, y, value, endTick;
+};
 
 class PlantsVsZombies {
 public:
@@ -51,9 +57,18 @@ private:
     int         sunGainDisplayEnd { 0 };
     int         lastFps           { 0 };
     int         lastSeconds       { 0 };
+    int         sunFlashEndTick   { 0 };
+
+    DmgIndicator dmgIndicators[MAX_DMG_INDICATORS];
+    int          dmgIndicatorCount { 0 };
 
     void update_screen();
     void drawSunHud();
+    void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
+
+    /* Files de plantes par joueur */
+    PlantQueue  queue1;
+    PlantQueue  queue2;
 
     /* Joueur 1 : démarre en haut à gauche */
     int         cursorCol   { 0 };
@@ -65,7 +80,7 @@ private:
 
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
-    void placePlant(int col, int row, PlantType type);
+    bool placePlant(int col, int row, PlantType type);
 };
 
 #endif

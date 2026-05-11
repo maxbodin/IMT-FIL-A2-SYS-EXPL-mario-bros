@@ -81,6 +81,12 @@
 #define SC_P2_RIGHT 38   /* L */
 #define SC_P2_PLACE 24   /* O */
 
+/* Curseurs rosters (sélection dans la file de plantes) */
+#define SC_P1_ROSTER_LEFT  44   /* W (QWERTY) */
+#define SC_P1_ROSTER_RIGHT 45   /* X (QWERTY) */
+#define SC_P2_ROSTER_LEFT  21   /* Y */
+#define SC_P2_ROSTER_RIGHT 22   /* U */
+
 /* [EXPLICATION] File d'événements clavier — architecture producteur/consommateur.
    Le handler IRQ (producteur) push() les événements ; la boucle de jeu (consommateur)
    les pop() via tryP() sous section critique (disable_IRQs).
