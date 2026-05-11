@@ -79,11 +79,13 @@ void clear_vga_screen(char color) {
 }
 
 void plot_square(int x, int y, int size, unsigned char color) {
-    int row, col;
-    for (row = 0; row < size; row++) {
-        int base = (y + row) * 320 + x;
-        for (col = 0; col < size; col++) {
-            video[base + col] = color;
+    for (int row = 0; row < size; row++) {
+        int py = y + row;
+        if (py < 0 || py >= 200) continue;
+        for (int col = 0; col < size; col++) {
+            int px = x + col;
+            if (px < 0 || px >= 320) continue;
+            video[py * 320 + px] = color;
         }
     }
 }
@@ -145,6 +147,10 @@ void draw_number(int n, int x, int y, unsigned char color, int scale) {
 }
 
 // palette: 205=(41,63,44) green, 40=(45,30,10) orange, 50=(23,1,0) red, 1=(4,4,4) dark border
+static inline bool vga_safe(int x, int y) {
+    return x >= 0 && x < 320 && y >= 0 && y < 200;
+}
+
 void draw_hp_bar(int x, int y, int w, int hp, int maxHp) {
     if (maxHp <= 0) return;
     int filled = (hp * w) / maxHp;
@@ -158,26 +164,53 @@ void draw_hp_bar(int x, int y, int w, int hp, int maxHp) {
     else                fill_color = 205;
 
     for (int col = 0; col < w; col++)
-        video[(y - 1) * 320 + x + col] = 1;
+        if (vga_safe(x + col, y - 1))
+            video[(y - 1) * 320 + x + col] = 1;
     for (int row = 0; row < 3; row++) {
-        int base = (y + row) * 320 + x;
         for (int col = 0; col < w; col++)
-            video[base + col] = (col < filled) ? fill_color : 1;
+            if (vga_safe(x + col, y + row))
+                video[(y + row) * 320 + x + col] = (col < filled) ? fill_color : 1;
     }
     for (int col = 0; col < w; col++)
-        video[(y + 3) * 320 + x + col] = 1;
+        if (vga_safe(x + col, y + 3))
+            video[(y + 3) * 320 + x + col] = 1;
 }
 
-// Draw a w×h sprite at (dstX, dstY), skipping color 255
+// Draw a w×h sprite at (dstX, dstY), skipping color 0, with bounds clipping
 void draw_sprite(const unsigned char* sprite,
                  int w, int h,
                  int dstX, int dstY)
 {
-    for (int yy = 0; yy < h; ++yy) {
-        for (int xx = 0; xx < w; ++xx) {
+    int x0 = (dstX < 0) ? -dstX : 0;
+    int y0 = (dstY < 0) ? -dstY : 0;
+    int x1 = (dstX + w > 320) ? 320 - dstX : w;
+    int y1 = (dstY + h > 200) ? 200 - dstY : h;
+    for (int yy = y0; yy < y1; ++yy) {
+        for (int xx = x0; xx < x1; ++xx) {
             unsigned char c = sprite[yy * w + xx];
             if (c != 0) {
                 video[(yy+dstY)*320 + (xx + dstX)] = c;
+            }
+        }
+    }
+}
+
+void draw_sprite_scaled(const unsigned char* sprite,
+                        int srcW, int srcH,
+                        int dstX, int dstY,
+                        int dstW, int dstH)
+{
+    for (int dy = 0; dy < dstH; ++dy) {
+        int py = dstY + dy;
+        if (py < 0 || py >= 200) continue;
+        int sy = dy * srcH / dstH;
+        for (int dx = 0; dx < dstW; ++dx) {
+            int px = dstX + dx;
+            if (px < 0 || px >= 320) continue;
+            int sx = dx * srcW / dstW;
+            unsigned char c = sprite[sy * srcW + sx];
+            if (c != 0) {
+                video[py * 320 + px] = c;
             }
         }
     }
