@@ -3,9 +3,12 @@
 
 #include <Applications/PlantsVsZombies/Grid.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
+#include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
 #include <drivers/Clavier.h>
+
+enum PlantType { PLANT_PEASHOOTER, PLANT_SNOW_PEASHOOTER };
 
 #define MAX_PLANTS  45
 #define MAX_BULLETS 90
@@ -51,8 +54,6 @@ private:
 
     void update_screen();
     void drawSunHud();
-    int         lastFps     { 0 };
-    int         lastSeconds { 0 };
 
     /* Joueur 1 : démarre en haut à gauche */
     int         cursorCol   { 0 };
@@ -62,11 +63,9 @@ private:
     int         cursorCol2  { Grid::COLS - 1 };
     int         cursorRow2  { Grid::ROWS - 1 };
 
-
-    void update_screen();
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
-    void placePlant(int col, int row);
+    void placePlant(int col, int row, PlantType type);
 };
 
 #endif

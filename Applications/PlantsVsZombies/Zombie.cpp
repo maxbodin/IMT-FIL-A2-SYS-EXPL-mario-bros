@@ -4,7 +4,7 @@
 #include <vga/vga.h>
 
 Zombie::Zombie(int x, int y)
-    : Entity(x, y, HP), cooldown(HIT_DELAY), frame(0), animTick(0) {}
+    : Entity(x, y, HP), cooldown(HIT_DELAY), frame(0), animTick(0), slowTicks(0) {}
 
 void Zombie::update() {
     if (state == DYING) {
@@ -16,13 +16,17 @@ void Zombie::update() {
 
     if (cooldown > 0)
         cooldown--;
+    if (slowTicks > 0)
+        slowTicks--;
+
+    int speed = (slowTicks > 0) ? ANIM_SPEED * 2 : ANIM_SPEED;
 
     if (state == BLOCKED) {
-        if (++animTick >= ANIM_SPEED) {
+        if (++animTick >= speed) {
             animTick = 0;
             frame = (frame + 1) % ZOMBIE_FIGHT_FRAMES;
         }
-    } else if (++animTick >= ANIM_SPEED) {
+    } else if (++animTick >= speed) {
         animTick = 0;
         frame = (frame + 1) % ZOMBIE_WALK_FRAMES;
         if (frame == 1 || frame == 5) {
@@ -62,4 +66,12 @@ void Zombie::unblock() {
 
 bool Zombie::isBlocked() const { 
     return state == BLOCKED; 
+}
+
+void Zombie::applySlow(int duration) {
+    slowTicks = duration;
+}
+
+bool Zombie::isSlowed() const {
+    return slowTicks > 0;
 }

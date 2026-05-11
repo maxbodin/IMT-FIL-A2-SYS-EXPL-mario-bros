@@ -6,6 +6,7 @@ enum EntityState { ALIVE, DYING, DEAD, BLOCKED };
 class Entity {
 public:
     Entity(int x, int y, int hp);
+    virtual ~Entity() {}
 
     virtual void update() = 0;
     virtual void render() = 0;
