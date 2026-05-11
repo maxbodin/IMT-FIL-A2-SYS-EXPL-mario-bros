@@ -1,0 +1,6 @@
+#ifndef PLANT_TYPE_H
+#define PLANT_TYPE_H
+
+enum PlantType { PLANT_PEASHOOTER, PLANT_SNOW_PEASHOOTER };
+
+#endif

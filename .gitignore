@@ -69,3 +69,5 @@ Temporary Items
 
 .claude
 vga/__pycache__/
+.claude/
+build/boot/qemu_int.log
