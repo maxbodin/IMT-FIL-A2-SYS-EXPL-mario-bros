@@ -11,6 +11,7 @@ public:
     virtual void render() = 0;
 
     void takeDamage(int amount);
+    void heal(int amount);
     bool isDead() const;
 
     int getId() const;
