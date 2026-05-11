@@ -46,6 +46,16 @@ void operator delete(void *object)
 
 }
 
+void operator delete(void *object, long unsigned int)
+{
+
+}
+
+extern "C" void __cxa_pure_virtual() {
+    // Bare-metal safety net: halt if a pure virtual is called
+    while (1) {}
+}
+
 void freemem(int address, int size) {
 	if (address == 0 || size <= 0) {
         return;

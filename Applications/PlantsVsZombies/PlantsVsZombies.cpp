@@ -1,5 +1,6 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
 #include <Applications/PlantsVsZombies/PeashooterBullet.h>
+#include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
@@ -108,7 +109,7 @@ void PlantsVsZombies::update_screen() {
         if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
-            PeashooterBullet* b = new PeashooterBullet(bx, by);
+            Bullet* b = plants[i]->createBullet(bx, by);
             if (b) {
                 bullets[bulletCount++] = b;
                 plants[i]->resetCooldown();
@@ -152,7 +153,7 @@ void PlantsVsZombies::update_screen() {
                          bullets[i]->getWidth(), bullets[i]->getHeight(),
                          zombies[z]->getX(),  zombies[z]->getY(),
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
-                    zombies[z]->takeDamage(bullets[i]->getDamage());
+                    bullets[i]->onHit(*zombies[z]);
                     bullets[i]->deactivate();
                     break;
                 }
@@ -224,14 +225,14 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P1_DOWN)  cursorRow++;
         else if (evt.scanCode == SC_P1_LEFT)  cursorCol--;
         else if (evt.scanCode == SC_P1_RIGHT) cursorCol++;
-        else if (evt.scanCode == SC_P1_PLACE) placePlant(cursorCol, cursorRow);
+        else if (evt.scanCode == SC_P1_PLACE) placePlant(cursorCol, cursorRow, PLANT_PEASHOOTER);
 
         /* --- Joueur 2 : IJKL + O --- */
         else if (evt.scanCode == SC_P2_UP)    cursorRow2--;
         else if (evt.scanCode == SC_P2_DOWN)  cursorRow2++;
         else if (evt.scanCode == SC_P2_LEFT)  cursorCol2--;
         else if (evt.scanCode == SC_P2_RIGHT) cursorCol2++;
-        else if (evt.scanCode == SC_P2_PLACE) placePlant(cursorCol2, cursorRow2);
+        else if (evt.scanCode == SC_P2_PLACE) placePlant(cursorCol2, cursorRow2, PLANT_SNOW_PEASHOOTER);
     }
 
     /* Borne les curseurs dans les limites de la grille. */
@@ -246,7 +247,7 @@ void PlantsVsZombies::handleInput() {
     if (cursorRow2 >= Grid::ROWS) cursorRow2 = Grid::ROWS - 1;
 }
 
-void PlantsVsZombies::placePlant(int col, int row) {
+void PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     if (plantCount >= MAX_PLANTS) return;
 
     /* [EXPLICATION] Vérification d'occupation de la case : on parcourt le tableau
@@ -261,7 +262,18 @@ void PlantsVsZombies::placePlant(int col, int row) {
             return;
     }
 
-    Peashooter* p = new Peashooter(px, py);
+    Peashooter* p = 0;
+
+    switch (type) {
+        case PLANT_SNOW_PEASHOOTER:
+            p = new SnowPeashooter(px, py); 
+            break;
+        case PLANT_PEASHOOTER:
+        default:                    
+            p = new Peashooter(px, py);     
+            break;
+    }
+    
     if (p) plants[plantCount++] = p;
 }
 

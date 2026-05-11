@@ -3,6 +3,8 @@
 
 #include <Applications/PlantsVsZombies/Entity.h>
 
+class Bullet;
+
 class Peashooter : public Entity {
 public:
     static const int HP          = 300;
@@ -16,11 +18,12 @@ public:
 
     bool canShoot() const;
     void resetCooldown();
+    virtual Bullet* createBullet(int bx, int by);
 
     int getWidth() const override;
     int getHeight() const override;
 
-private:
+protected:
     static const int ANIM_SPEED = 10; // update calls entre chaque frame
     int cooldown;
     int frame;

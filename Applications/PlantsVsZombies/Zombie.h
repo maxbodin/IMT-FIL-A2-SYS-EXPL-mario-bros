@@ -23,11 +23,15 @@ public:
     void unblock();
     bool isBlocked() const;
 
+    void applySlow(int duration);
+    bool isSlowed() const;
+
 private:
     static const int ANIM_SPEED = 15; // update calls entre chaque frame
     int cooldown;
     int frame;
     int animTick;
+    int slowTicks;
 };
 
 #endif
