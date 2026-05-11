@@ -16,6 +16,8 @@ public:
 
     Tile* getTile(int col, int row);
     void tileToPixel(int col, int row, int& px, int& py);
+    bool pixelToTile(int px, int py, int& col, int& row);
+    bool isTileOccupied(int col, int row);
     void render();
     void renderTile(int col, int row);
 };

@@ -21,6 +21,17 @@ void Grid::tileToPixel(int col, int row, int& px, int& py) {
     py = OFFSET_Y + row * TILE_SIZE;
 }
 
+bool Grid::pixelToTile(int px, int py, int& col, int& row) {
+    col = (px - OFFSET_X) / TILE_SIZE;
+    row = (py - OFFSET_Y) / TILE_SIZE;
+    return col >= 0 && col < COLS && row >= 0 && row < ROWS;
+}
+
+bool Grid::isTileOccupied(int col, int row) {
+    Tile* t = getTile(col, row);
+    return t && t->getState() != TileState::Empty;
+}
+
 void Grid::render() {
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
