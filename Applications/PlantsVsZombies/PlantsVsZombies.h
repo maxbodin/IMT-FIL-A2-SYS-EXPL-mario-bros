@@ -51,8 +51,6 @@ private:
 
     void update_screen();
     void drawSunHud();
-    int         lastFps     { 0 };
-    int         lastSeconds { 0 };
 
     /* Joueur 1 : démarre en haut à gauche */
     int         cursorCol   { 0 };
@@ -62,8 +60,6 @@ private:
     int         cursorCol2  { Grid::COLS - 1 };
     int         cursorRow2  { Grid::ROWS - 1 };
 
-
-    void update_screen();
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
     void placePlant(int col, int row);

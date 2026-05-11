@@ -15,6 +15,14 @@ void Entity::takeDamage(int amount) {
     }
 }
 
+void Entity::heal(int amount) {
+    if (state == DYING || state == DEAD) return;
+    hp += amount;
+    if (hp > maxHp) {
+        hp = maxHp;
+    }
+}
+
 bool Entity::isDead() const {
     return state == DEAD;
 }
