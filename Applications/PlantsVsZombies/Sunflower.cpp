@@ -44,7 +44,7 @@ void Sunflower::render() {
 }
 
 bool Sunflower::canShoot() const { return false; }
-Bullet* Sunflower::createBullet(int, int) { return 0; }
+BulletType Sunflower::getBulletType() const { return BULLET_PEASHOOTER; }
 
 bool Sunflower::hasSunReady() const {
     return state != DYING && state != DEAD && compt >= nextSunTick;

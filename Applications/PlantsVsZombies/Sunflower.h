@@ -14,7 +14,7 @@ public:
     void update() override;
     void render() override;
     bool canShoot() const;
-    Bullet* createBullet(int bx, int by) override;
+    BulletType getBulletType() const override;
 
     bool hasSunReady() const;
     void resetSunTimer();

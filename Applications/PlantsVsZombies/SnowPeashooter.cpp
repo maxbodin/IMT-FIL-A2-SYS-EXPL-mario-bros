@@ -1,5 +1,4 @@
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
-#include <Applications/PlantsVsZombies/SnowPeaBullet.h>
 #include <Applications/PlantsVsZombies/sprites/snow_peashooter_sprite.h>
 #include <vga/vga.h>
 
@@ -20,6 +19,6 @@ void SnowPeashooter::render() {
     renderHpBar(SNOW_PEASHOOTER_WIDTH / 2, SNOW_PEASHOOTER_HEIGHT);
 }
 
-Bullet* SnowPeashooter::createBullet(int bx, int by) {
-    return new SnowPeaBullet(bx, by);
+BulletType SnowPeashooter::getBulletType() const {
+    return BULLET_SNOW_PEA;
 }

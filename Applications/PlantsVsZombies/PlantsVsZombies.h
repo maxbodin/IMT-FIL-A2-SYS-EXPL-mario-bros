@@ -6,6 +6,7 @@
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Sunflower.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
+#include <Applications/PlantsVsZombies/BulletPool.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
 #include <Applications/PlantsVsZombies/Sun.h>
 #include <Applications/PlantsVsZombies/PlantQueue.h>
@@ -13,7 +14,6 @@
 #include <drivers/Clavier.h>
 
 #define MAX_PLANTS  45
-#define MAX_BULLETS 90
 #define MAX_ZOMBIES 20
 #define MAX_DMG_INDICATORS   16
 
@@ -47,8 +47,7 @@ private:
     Grid        grid;
     Peashooter* plants[MAX_PLANTS];
     int         plantCount;
-    Bullet*     bullets[MAX_BULLETS];
-    int         bulletCount;
+    BulletPool  bulletPool;
     Zombie*     zombies[MAX_ZOMBIES];
     int         zombieCount;
 
