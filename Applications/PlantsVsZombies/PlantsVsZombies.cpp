@@ -1,5 +1,4 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
-#include <Applications/PlantsVsZombies/PeashooterBullet.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Sunflower.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
@@ -89,11 +88,9 @@ void PlantsVsZombies::drawSunHud() {
 #define CURSOR_P1_COLOR 15
 #define CURSOR_P2_COLOR 205
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0), dmgIndicatorCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0), dmgIndicatorCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
-    for (int i = 0; i < MAX_BULLETS; i++)
-        bullets[i] = 0;
     for (int i = 0; i < MAX_ZOMBIES; i++)
         zombies[i] = 0;
     for (int i = 0; i < MAX_SUNS; i++)
@@ -154,13 +151,12 @@ void PlantsVsZombies::update_screen() {
             plants[i]->resetSunTimer();
         }
 
-        // Shooters: spawn bullets
-        if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
+        // Shooters: spawn bullets via pool
+        if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
-            Bullet* b = plants[i]->createBullet(bx, by);
+            Bullet* b = bulletPool.acquire(bx, by, plants[i]->getBulletType());
             if (b) {
-                bullets[bulletCount++] = b;
                 plants[i]->resetCooldown();
             }
         }
@@ -192,19 +188,23 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
-    // --- Bullets: update + collision vs zombies + remove inactive ---
-    for (int i = 0; i < bulletCount; i++) {
-        bullets[i]->update();
-        if (bullets[i]->isActive()
-                && bullets[i]->getX() > bullets[i]->getSpawnX() + COLLISION_DISTANCE) {
+    // --- Bullets: update + collision vs zombies (object pool, no new/delete) ---
+    for (int i = 0; i < BulletPool::SIZE; i++) {
+        Bullet* b = bulletPool.get(i);
+        if (!b->isActive()) continue;
+
+        b->update();
+        if (!b->isActive()) continue; // went off-screen
+
+        if (b->getX() > b->getSpawnX() + COLLISION_DISTANCE) {
             for (int z = 0; z < zombieCount; z++) {
-                if (aabb(bullets[i]->getX(),  bullets[i]->getY(),
-                         bullets[i]->getWidth(), bullets[i]->getHeight(),
+                if (aabb(b->getX(),  b->getY(),
+                         b->getWidth(), b->getHeight(),
                          zombies[z]->getX(),  zombies[z]->getY(),
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
-                    int dmg = bullets[i]->getDamage();
-                    bullets[i]->onHit(*zombies[z]);
-                    bullets[i]->deactivate();
+                    int dmg = b->getDamage();
+                    b->onHit(*zombies[z]);
+                    bulletPool.release(b);
                     /* Damage indicator */
                     if (dmgIndicatorCount < MAX_DMG_INDICATORS) {
                         dmgIndicators[dmgIndicatorCount].x = zombies[z]->getX();
@@ -216,12 +216,6 @@ void PlantsVsZombies::update_screen() {
                     break;
                 }
             }
-        }
-        if (!bullets[i]->isActive()) {
-            delete bullets[i];
-            bullets[i] = bullets[--bulletCount];
-            bullets[bulletCount] = 0;
-            i--;
         }
     }
 
@@ -246,7 +240,7 @@ void PlantsVsZombies::update_screen() {
 
             lastSunCollected = val;
             sunCollectDisplayEnd = compt + SUN_COLLECT_DISPLAY;
-            
+
             delete suns_on_ground[i];
             suns_on_ground[i] = suns_on_ground[--sunOnGroundCount];
             suns_on_ground[sunOnGroundCount] = 0;
@@ -267,8 +261,10 @@ void PlantsVsZombies::update_screen() {
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
 
-    for (int i = 0; i < bulletCount; i++)
-        if (bullets[i]) bullets[i]->render();
+    for (int i = 0; i < BulletPool::SIZE; i++) {
+        Bullet* b = bulletPool.get(i);
+        if (b->isActive()) b->render();
+    }
 
     for (int i = 0; i < zombieCount; i++)
         if (zombies[i]) zombies[i]->render();

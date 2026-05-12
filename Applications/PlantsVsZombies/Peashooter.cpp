@@ -1,5 +1,4 @@
 #include <Applications/PlantsVsZombies/Peashooter.h>
-#include <Applications/PlantsVsZombies/PeashooterBullet.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
 #include <vga/vga.h>
 
@@ -43,8 +42,8 @@ int Peashooter::getHeight() const {
     return PEASHOOTER_HEIGHT;
 }
 
-Bullet* Peashooter::createBullet(int bx, int by) {
-    return new PeashooterBullet(bx, by);
+BulletType Peashooter::getBulletType() const {
+    return BULLET_PEASHOOTER;
 }
 
 bool Peashooter::hasSunReady() const { return false; }

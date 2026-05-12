@@ -11,7 +11,7 @@ public:
 
     void update() override;
     void render() override;
-    Bullet* createBullet(int bx, int by) override;
+    BulletType getBulletType() const override;
 };
 
 #endif

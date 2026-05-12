@@ -3,30 +3,36 @@
 
 class Zombie;
 
+enum BulletType { BULLET_PEASHOOTER, BULLET_SNOW_PEA };
+
 class Bullet {
 public:
-    Bullet(int x, int y);
-    virtual ~Bullet() {}
+    Bullet();
 
-    virtual void update() = 0;
-    virtual void render() = 0;
-    virtual void erase() = 0;
+    void init(int x, int y, BulletType type);
+    void update();
+    void render();
+    void onHit(Zombie& target);
 
-    bool isActive();
+    bool isActive() const;
     void deactivate();
 
-    int getX();
-    int getY();
+    int getX() const;
+    int getY() const;
     int getSpawnX() const;
-    virtual int getWidth()  const = 0;
-    virtual int getHeight() const = 0;
-    virtual int getDamage() const = 0;
-    virtual void onHit(Zombie& target);
+    int getWidth()  const;
+    int getHeight() const;
+    int getDamage() const;
 
-protected:
+private:
+    static const int SPEED         = 4;
+    static const int SLOW_DURATION = 300;
+
     int x, y;
     int spawnX;
     bool active;
+    BulletType type;
+    int damage;
 };
 
 #endif
