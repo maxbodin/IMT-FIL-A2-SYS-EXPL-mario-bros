@@ -16,9 +16,11 @@ public:
     void update();
     void render();
 
-    bool canShoot() const;
+    virtual bool canShoot() const;
     void resetCooldown();
     virtual Bullet* createBullet(int bx, int by);
+    virtual bool hasSunReady() const;
+    virtual void resetSunTimer();
 
     int getWidth() const override;
     int getHeight() const override;

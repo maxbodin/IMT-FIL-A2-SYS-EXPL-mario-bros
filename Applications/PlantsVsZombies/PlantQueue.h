@@ -6,7 +6,7 @@
 #include <Applications/PlantsVsZombies/PlantType.h>
 
 /* Nombre de types de plantes disponibles dans le roster. */
-#define ROSTER_SIZE       2
+#define ROSTER_SIZE       3
 /* Nombre maximum de plantes en file d'attente par joueur. */
 #define QUEUE_CAPACITY    3
 

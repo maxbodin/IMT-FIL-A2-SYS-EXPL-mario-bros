@@ -18,7 +18,7 @@ public:
 
 private:
     static const int SPEED         = 4;
-    static const int DAMAGE        = 5;
+    static const int DAMAGE        = 25;
     static const int SLOW_DURATION = 300; // ticks de ralentissement
 };
 
