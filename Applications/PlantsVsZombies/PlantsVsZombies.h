@@ -13,6 +13,7 @@
 #include <Applications/PlantsVsZombies/PlantQueue.h>
 #include <Applications/PlantsVsZombies/WaveManager.h>
 #include <drivers/Clavier.h>
+#include <sextant/sync/Semaphore.h>
 
 #define MAX_PLANTS  45
 #define MAX_ZOMBIES 20
@@ -37,6 +38,11 @@ public:
 
     bool canAfford(int cost) const;
     void spendSuns(int cost);
+
+    /* Points d'entrée des threads de jeu.
+       Chaque méthode est une boucle infinie exécutée par son thread dédié. */
+    void runLogic();   /* Thread logique : mise à jour de l'état du jeu   */
+    void runRender();  /* Thread rendu  : composition backbuffer + blit VGA */
 
 private:
     Grid        grid;
@@ -73,8 +79,16 @@ private:
     int cursorCol2 { Grid::COLS - 1 };
     int cursorRow2 { Grid::ROWS - 1 };
 
+    /* [SYNC] Sémaphore de synchronisation logique → rendu.
+       Le thread logique fait V() après chaque mise à jour de l'état du jeu.
+       Le thread rendu fait tryP() (non bloquant) et cède le CPU (Yield()) s'il
+       n'y a pas encore de nouvelle frame à dessiner.
+       Valeur initiale 0 : le rendu attend obligatoirement le premier tick logique. */
+    Semaphore frameSem { 0 };
+
     void addSuns(int amount);
-    void update_screen();
+    void updateLogic();   /* Pure logique (pas de dessin) */
+    void renderFrame();   /* Pure présentation (backbuffer + blit) */
     void drawSunHud();
     void drawLivesHud();
     void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
