@@ -46,19 +46,7 @@
 - `sprite.py` : PNG → tableau C (indices palette), quantification couleurs
 - `palette.py` : fichiers .pal/.gpl/.act → tableau C
 
-### Applications existantes
-- **SuperPong** : jeu Pong/Breakout en mode texte (80×25), 2 raquettes, grille imbriquée, physique balle
-- **Horloge** : compteur de ticks timer
-
 ---
-
-## Chaîne de compilation
-
-- **Mac** : `i386-elf-g++-4.3.2` (cross-compiler)
-- **Linux** : `g++ -m32`
-- Flags : C++11, `-fno-exceptions`, `-fno-rtti`, `-ffreestanding`
-- Linker : `support/sextant.lds`
-- Cible : `build/boot/sextant.elf` → `build/boot/grub.iso`
 
 ### Commandes Makefile
 ```bash
@@ -78,17 +66,6 @@ make clean    # Nettoie les artefacts
 - Palette : 256 triplets RGB 6-bit chargés via port DAC (0x3C8/0x3C9)
 - Sprite : tableau `unsigned char[]`, couleur 255 = transparent
 - Visualisation QEMU : VNC port 5900 (`make run_gui` ou option `-vnc :0`)
-
----
-
-## Objectif du projet : Plants vs Zombies
-
-Implémenter PvZ sur Sextant en mode VGA 13h :
-- Grille de jeu 2D (cases plantes / zombies)
-- Entités : tournesol, pois-tireur, zombie basique…
-- Game loop pilotée par interruptions timer
-- Saisie clavier pour placement des plantes
-- Rendu sprites VGA
 
 ---
 

@@ -9,6 +9,7 @@ public:
 
     SnowPeashooter(int x, int y);
 
+    void update() override;
     void render() override;
     Bullet* createBullet(int bx, int by) override;
 };

@@ -146,6 +146,57 @@ void draw_number(int n, int x, int y, unsigned char color, int scale) {
     }
 }
 
+// 3x5 bitmap font for a small set of letters (only those actually used)
+static const unsigned char letter_font[26][5] = {
+    {0b000,0b000,0b000,0b000,0b000}, // a
+    {0b000,0b000,0b000,0b000,0b000}, // b
+    {0b000,0b000,0b000,0b000,0b000}, // c
+    {0b000,0b000,0b000,0b000,0b000}, // d
+    {0b000,0b000,0b000,0b000,0b000}, // e
+    {0b111,0b100,0b110,0b100,0b100}, // f
+    {0b000,0b000,0b000,0b000,0b000}, // g
+    {0b000,0b000,0b000,0b000,0b000}, // h
+    {0b000,0b000,0b000,0b000,0b000}, // i
+    {0b000,0b000,0b000,0b000,0b000}, // j
+    {0b000,0b000,0b000,0b000,0b000}, // k
+    {0b000,0b000,0b000,0b000,0b000}, // l
+    {0b000,0b000,0b000,0b000,0b000}, // m
+    {0b000,0b000,0b000,0b000,0b000}, // n
+    {0b000,0b000,0b000,0b000,0b000}, // o
+    {0b111,0b101,0b111,0b100,0b100}, // p
+    {0b000,0b000,0b000,0b000,0b000}, // q
+    {0b000,0b000,0b000,0b000,0b000}, // r
+    {0b011,0b100,0b010,0b001,0b110}, // s
+    {0b000,0b000,0b000,0b000,0b000}, // t
+    {0b000,0b000,0b000,0b000,0b000}, // u
+    {0b000,0b000,0b000,0b000,0b000}, // v
+    {0b101,0b101,0b111,0b010,0b010}, // w
+    {0b000,0b000,0b000,0b000,0b000}, // x
+    {0b000,0b000,0b000,0b000,0b000}, // y
+    {0b000,0b000,0b000,0b000,0b000}, // z
+};
+
+void draw_char(char c, int x, int y, unsigned char color, int scale) {
+    const unsigned char* glyph = 0;
+    if (c >= '0' && c <= '9')
+        glyph = digit_font[c - '0'];
+    else if (c >= 'a' && c <= 'z')
+        glyph = letter_font[c - 'a'];
+    else if (c >= 'A' && c <= 'Z')
+        glyph = letter_font[c - 'A'];
+    if (!glyph) return;
+    for (int row = 0; row < 5; row++)
+        for (int col = 0; col < 3; col++)
+            if (glyph[row] & (1 << (2 - col)))
+                plot_square(x + col * scale, y + row * scale, scale, color);
+}
+
+void draw_text(const char* str, int x, int y, unsigned char color, int scale) {
+    int stride = 3 * scale + scale;
+    for (int i = 0; str[i]; i++)
+        draw_char(str[i], x + i * stride, y, color, scale);
+}
+
 // palette: 205=(41,63,44) green, 40=(45,30,10) orange, 50=(23,1,0) red, 1=(4,4,4) dark border
 static inline bool vga_safe(int x, int y) {
     return x >= 0 && x < 320 && y >= 0 && y < 200;
