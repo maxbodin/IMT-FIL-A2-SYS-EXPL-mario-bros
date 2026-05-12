@@ -88,7 +88,7 @@ void PlantsVsZombies::drawSunHud() {
 #define CURSOR_P1_COLOR 15
 #define CURSOR_P2_COLOR 205
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0), dmgIndicatorCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
     for (int i = 0; i < MAX_ZOMBIES; i++)
@@ -155,8 +155,9 @@ void PlantsVsZombies::update_screen() {
         if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
-            Bullet* b = bulletPool.acquire(bx, by, plants[i]->getBulletType());
+            Bullet* b = bulletPool.acquire();
             if (b) {
+                b->init(bx, by, plants[i]->getBulletType());
                 plants[i]->resetCooldown();
             }
         }
@@ -189,7 +190,7 @@ void PlantsVsZombies::update_screen() {
     }
 
     // --- Bullets: update + collision vs zombies (object pool, no new/delete) ---
-    for (int i = 0; i < BulletPool::SIZE; i++) {
+    for (int i = 0; i < bulletPool.CAPACITY; i++) {
         Bullet* b = bulletPool.get(i);
         if (!b->isActive()) continue;
 
@@ -205,14 +206,11 @@ void PlantsVsZombies::update_screen() {
                     int dmg = b->getDamage();
                     b->onHit(*zombies[z]);
                     bulletPool.release(b);
-                    /* Damage indicator */
-                    if (dmgIndicatorCount < MAX_DMG_INDICATORS) {
-                        dmgIndicators[dmgIndicatorCount].x = zombies[z]->getX();
-                        dmgIndicators[dmgIndicatorCount].y = zombies[z]->getY() - 4;
-                        dmgIndicators[dmgIndicatorCount].value = dmg;
-                        dmgIndicators[dmgIndicatorCount].endTick = compt + DMG_INDICATOR_DURATION;
-                        dmgIndicatorCount++;
-                    }
+                    /* Damage indicator via pool */
+                    DmgIndicator* di = dmgPool.acquire();
+                    if (di) di->init(zombies[z]->getX(),
+                                     zombies[z]->getY() - 4,
+                                     dmg, DMG_INDICATOR_DURATION);
                     break;
                 }
             }
@@ -261,7 +259,7 @@ void PlantsVsZombies::update_screen() {
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
 
-    for (int i = 0; i < BulletPool::SIZE; i++) {
+    for (int i = 0; i < bulletPool.CAPACITY; i++) {
         Bullet* b = bulletPool.get(i);
         if (b->isActive()) b->render();
     }
@@ -303,19 +301,12 @@ void PlantsVsZombies::update_screen() {
 
     drawSunHud();
 
-    /* Damage indicators */
-    for (int i = 0; i < dmgIndicatorCount; i++) {
-        if (compt < dmgIndicators[i].endTick) {
-            int elapsed = DMG_INDICATOR_DURATION - (dmgIndicators[i].endTick - compt);
-            int floatY  = dmgIndicators[i].y - (elapsed / 50);
-            draw_number(dmgIndicators[i].value, dmgIndicators[i].x, floatY, SUN_HUD_YELLOW, 1);
-        } else {
-            dmgIndicatorCount--;
-            if (i < dmgIndicatorCount) {
-                dmgIndicators[i] = dmgIndicators[dmgIndicatorCount];
-            }
-            i--;
-        }
+    /* Damage indicators (object pool) */
+    for (int i = 0; i < dmgPool.CAPACITY; i++) {
+        DmgIndicator* di = dmgPool.get(i);
+        if (!di->isActive()) continue;
+        di->update();
+        if (di->isActive()) di->render();
     }
 
     /* Mise à jour et affichage des files de plantes */
