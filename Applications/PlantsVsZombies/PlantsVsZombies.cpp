@@ -96,6 +96,12 @@ static bool aabb(int ax, int ay, int aw, int ah,
 
 void PlantsVsZombies::update_screen() {
 
+    // --- Wave spawning ---
+    if (zombieCount < MAX_ZOMBIES) {
+        Zombie* z = waveManager.update();
+        if (z) zombies[zombieCount++] = z;
+    }
+
     // --- Gain automatique de soleils ---
     if (compt - lastSunTick >= SUN_TICK_INTERVAL) {
         addSuns(SUN_TICK_AMOUNT);
@@ -209,9 +215,29 @@ void PlantsVsZombies::update_screen() {
     drawCursor(cursorCol,  cursorRow,  c1);
     drawCursor(cursorCol2, cursorRow2, c2);
 
-    // compteurs
-    draw_number(lastSeconds, 0, 2, 15, 2);
-    draw_number(lastFps, 290, 2, 15, 2);
+    // Timer (scale 1) with "s" unit
+    {
+        int len = 0, tmp = lastSeconds;
+        if (tmp == 0) len = 1; else while (tmp > 0) { len++; tmp /= 10; }
+        draw_number(lastSeconds, 1, 2, 15, 1);
+        draw_text("s", 1 + len * 4, 2, 15, 1);
+    }
+
+    // FPS (scale 1) with "fps" unit, right-aligned
+    {
+        int len = 0, tmp = lastFps;
+        if (tmp == 0) len = 1; else while (tmp > 0) { len++; tmp /= 10; }
+        int totalW = (len + 3) * 4;
+        int startX = 319 - totalW;
+        draw_number(lastFps, startX, 2, 15, 1);
+        draw_text("fps", startX + len * 4, 2, 15, 1);
+    }
+    
+    // Wave indicator
+    {
+        draw_text("w", 1, 9, 15, 1);
+        draw_number(waveManager.getWave(), 5, 9, 15, 1);
+    }
 
     drawSunHud();
 
@@ -385,7 +411,7 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
         case PLANT_SNOW_PEASHOOTER:
             w = SNOW_PEASHOOTER_WIDTH; 
             h = SNOW_PEASHOOTER_HEIGHT;
-            return snow_peashooter_sprite_data;
+            return snow_peashooter_frames[0];
         case PLANT_PEASHOOTER:
         default:
             w = PEASHOOTER_WIDTH; 
@@ -447,11 +473,6 @@ void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned
 }
 
 void PlantsVsZombies::start() {
-    /* Zombie spawns at right edge of screen, grid-aligned to row 0 */
-    int zy = Grid::OFFSET_Y + 0 * Grid::TILE_SIZE;
-    zombies[0] = new Zombie(320 - ZOMBIE_WALK_WIDTH, zy);
-    zombieCount = 1;
-
     /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
     queue1.seed(2);
     queue2.seed(2);
