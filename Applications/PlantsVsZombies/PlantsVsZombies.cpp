@@ -29,11 +29,11 @@ static const unsigned char SUN_HUD_RED    =  32;
 
 // Dessine un "+" 3×3 pixels (à l'échelle scale)
 static void draw_plus(int x, int y, unsigned char color, int scale) {
-    plot_square(x + scale, y,          scale, color); // haut
-    plot_square(x,         y + scale,  scale, color); // gauche
-    plot_square(x + scale, y + scale,  scale, color); // centre
-    plot_square(x + scale*2, y + scale,scale, color); // droite
-    plot_square(x + scale, y + scale*2,scale, color); // bas
+    plot_square(x + scale, y,           scale, color); // haut
+    plot_square(x,         y + scale,   scale, color); // gauche
+    plot_square(x + scale, y + scale,   scale, color); // centre
+    plot_square(x + scale*2, y + scale, scale, color); // droite
+    plot_square(x + scale, y + scale*2, scale, color); // bas
 }
 
 void PlantsVsZombies::drawSunHud() {
@@ -43,18 +43,16 @@ void PlantsVsZombies::drawSunHud() {
         for (int col = 0; col < pw; col++)
             video[(py + row) * 320 + (px + col)] = SUN_HUD_BG;
 
-    // Nombre de soleils (rouge si pas assez)
     bool sunFlash = compt < sunFlashEndTick;
-    unsigned char sunColor = sunFlash ? SUN_HUD_RED : SUN_HUD_TEXT;
+    unsigned char sunColor    = sunFlash ? SUN_HUD_RED : SUN_HUD_TEXT;
     unsigned char borderColor = sunFlash ? SUN_HUD_RED : (unsigned char)3;
 
-    // Bordures pour délimiter le panneau
     for (int col = 0; col < pw; col++) {
         video[py * 320 + (px + col)]            = borderColor;
         video[(py + ph - 1) * 320 + (px + col)] = borderColor;
     }
 
-    // Icône soleil animée dans le compteur de sun (sun_small, 2 frames)
+    // Icône soleil animée (sun_small, 2 frames)
     {
         static int sunHudFrame = 0;
         static int sunHudAnimTick = 0;
@@ -67,10 +65,9 @@ void PlantsVsZombies::drawSunHud() {
                            px + 2, py + 2, 16, 16);
     }
 
-    // Nombre de soleils
     draw_number(suns, px + 22, py + 6, sunColor, 2);
 
-    // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain
+    // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain automatique
     if (compt < sunGainDisplayEnd) {
         draw_plus(px + 52, py + 6, SUN_HUD_GREEN, 2);
         draw_number(SUN_TICK_AMOUNT, px + 60, py + 6, SUN_HUD_GREEN, 2);
@@ -97,12 +94,10 @@ PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0) {
         suns_on_ground[i] = 0;
 }
 
-void PlantsVsZombies::init(Ecran* e,Clavier* c) {
-    ecran = e;
+void PlantsVsZombies::init(Ecran* e, Clavier* c) {
+    ecran   = e;
     clavier = c;
-
     backbuffer = (unsigned char*) getmem(320 * 200);
-
     set_vga_mode13();
     set_palette_vga(shared_palette);
     clear_vga_screen(0);
@@ -163,7 +158,7 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
-    // --- Zombies: block/unblock + damage plant + update + remove dead ---
+    // --- Zombies: collision plante + mouvement + suppression ---
     for (int i = 0; i < zombieCount; i++) {
         bool blocked = false;
         for (int p = 0; p < plantCount; p++) {
@@ -181,6 +176,15 @@ void PlantsVsZombies::update_screen() {
         }
         blocked ? zombies[i]->block() : zombies[i]->unblock();
         zombies[i]->update();
+
+        if (zombies[i]->getX() <= 0) {
+            lives--;
+            delete zombies[i];
+            zombies[i] = zombies[--zombieCount];
+            zombies[zombieCount] = 0;
+            i--;
+            continue;
+        }
         if (zombies[i]->isDead()) {
             delete zombies[i];
             zombies[i] = zombies[--zombieCount];
@@ -236,7 +240,7 @@ void PlantsVsZombies::update_screen() {
             int val = suns_on_ground[i]->getValue();
             addSuns(val);
 
-            lastSunCollected = val;
+            lastSunCollected     = val;
             sunCollectDisplayEnd = compt + SUN_COLLECT_DISPLAY;
 
             delete suns_on_ground[i];
@@ -246,7 +250,7 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
-    // Rendering
+    // --- Rendu ---
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
@@ -269,7 +273,7 @@ void PlantsVsZombies::update_screen() {
 
     for (int i = 0; i < sunOnGroundCount; i++)
         if (suns_on_ground[i]) suns_on_ground[i]->render();
-        
+
     unsigned char c1 = grid.isTileOccupied(cursorCol, cursorRow)   ? SUN_HUD_RED : CURSOR_P1_COLOR;
     unsigned char c2 = grid.isTileOccupied(cursorCol2, cursorRow2) ? SUN_HUD_RED : CURSOR_P2_COLOR;
     drawCursor(cursorCol,  cursorRow,  c1);
@@ -292,7 +296,7 @@ void PlantsVsZombies::update_screen() {
         draw_number(lastFps, startX, 2, 15, 1);
         draw_text("fps", startX + len * 4, 2, 15, 1);
     }
-    
+
     // Wave indicator
     {
         draw_text("w", 1, 9, 15, 1);
@@ -300,6 +304,7 @@ void PlantsVsZombies::update_screen() {
     }
 
     drawSunHud();
+    drawLivesHud();
 
     /* Damage indicators (object pool) */
     for (int i = 0; i < dmgPool.CAPACITY; i++) {
@@ -312,15 +317,72 @@ void PlantsVsZombies::update_screen() {
     /* Mise à jour et affichage des files de plantes */
     queue1.update();
     queue2.update();
-    drawQueueHud(queue1, 2,  186, CURSOR_P1_COLOR);
+    drawQueueHud(queue1, 2,   186, CURSOR_P1_COLOR);
     drawQueueHud(queue2, 200, 186, CURSOR_P2_COLOR);
 
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
-    for (int i = 0; i < 320 * 200; i++)
-        dst[i] = src[i];
+    for (int i = 0; i < 320 * 200; i++) dst[i] = src[i];
     video = real_video;
 }
+
+// ---------------------------------------------------------------------------
+// Lives HUD
+// ---------------------------------------------------------------------------
+
+void PlantsVsZombies::drawLivesHud() {
+    // Pixel-art heart, 5×4 cells, scale 2 → 10×8 px per heart
+    static const bool heart[4][5] = {
+        { 0, 1, 0, 1, 0 },
+        { 1, 1, 1, 1, 1 },
+        { 0, 1, 1, 1, 0 },
+        { 0, 0, 1, 0, 0 },
+    };
+    const int scale  = 2;
+    const int heartW = 5 * scale;
+    const int gap    = 3;
+    const int totalW = 3 * heartW + 2 * gap;
+    const int startX = 320 - totalW - 1;
+    const int startY = 16;
+
+    for (int i = 0; i < 3; i++) {
+        unsigned char color = (i < lives) ? (unsigned char)32 : (unsigned char)1;
+        int ox = startX + i * (heartW + gap);
+        for (int row = 0; row < 4; row++)
+            for (int col = 0; col < 5; col++)
+                if (heart[row][col])
+                    plot_square(ox + col * scale, startY + row * scale, scale, color);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Game Over
+// ---------------------------------------------------------------------------
+
+void PlantsVsZombies::showGameOver() {
+    for (int i = 0; i < 320 * 200; i++)
+        video[i] = 0;
+
+    // "GAME OVER" : 9 chars × (3+1) × scale3 = 108 px → centré à x=106
+    draw_text("GAME OVER", 106, 85, 32, 3);
+
+    // Temps de survie (secondes)
+    int len = 0, tmp = lastSeconds;
+    if (tmp == 0) len = 1; else { while (tmp > 0) { len++; tmp /= 10; } }
+    int sx = (320 - (len + 1) * 8) / 2;   // chaque char = 4*scale2 = 8px
+    draw_number(lastSeconds, sx, 112, 15, 2);
+    draw_text("s", sx + len * 8, 112, 15, 2);
+
+    // Vague atteinte
+    draw_text("wave", 134, 126, 15, 2);
+    draw_number(waveManager.getWave(), 134 + 4 * 8, 126, 15, 2);
+
+    while (true) {}
+}
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
 
 /* [EXPLICATION] Architecture producteur / consommateur.
    Le handler IRQ1 (producteur) push() les événements dans keyboardQueue.
@@ -338,14 +400,9 @@ void PlantsVsZombies::update_screen() {
    voir KeyboardQueue.cpp pour le détail.                                      */
 void PlantsVsZombies::handleInput() {
     KeyEvent evt;
-
-    /* [EXPLICATION] On draine TOUS les événements accumulés depuis le dernier frame.
-       Si plusieurs touches ont été pressées pendant les ~16 ms inter-frames, elles
-       sont toutes traitées ici, dans l'ordre d'arrivée.                           */
     while (keyboardQueue.pop(evt)) {
-        if (!evt.pressed) continue; /* on ignore les break (relâchement) */
+        if (!evt.pressed) continue;
 
-        /* --- Joueur 1 : ZQSD + Espace --- */
         if      (evt.scanCode == SC_P1_UP)    cursorRow--;
         else if (evt.scanCode == SC_P1_DOWN)  cursorRow++;
         else if (evt.scanCode == SC_P1_LEFT)  cursorCol--;
@@ -369,7 +426,6 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P1_ROSTER_LEFT)  queue1.moveRosterLeft();
         else if (evt.scanCode == SC_P1_ROSTER_RIGHT) queue1.moveRosterRight();
 
-        /* --- Joueur 2 : IJKL + O --- */
         else if (evt.scanCode == SC_P2_UP)    cursorRow2--;
         else if (evt.scanCode == SC_P2_DOWN)  cursorRow2++;
         else if (evt.scanCode == SC_P2_LEFT)  cursorCol2--;
@@ -394,17 +450,19 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P2_ROSTER_RIGHT) queue2.moveRosterRight();
     }
 
-    /* Borne les curseurs dans les limites de la grille. */
-    if (cursorCol < 0)            cursorCol = 0;
-    if (cursorCol >= Grid::COLS)  cursorCol = Grid::COLS - 1;
-    if (cursorRow < 0)            cursorRow = 0;
-    if (cursorRow >= Grid::ROWS)  cursorRow = Grid::ROWS - 1;
-
-    if (cursorCol2 < 0)           cursorCol2 = 0;
-    if (cursorCol2 >= Grid::COLS) cursorCol2 = Grid::COLS - 1;
-    if (cursorRow2 < 0)           cursorRow2 = 0;
-    if (cursorRow2 >= Grid::ROWS) cursorRow2 = Grid::ROWS - 1;
+    if (cursorCol  < 0)            cursorCol  = 0;
+    if (cursorCol  >= Grid::COLS)  cursorCol  = Grid::COLS - 1;
+    if (cursorRow  < 0)            cursorRow  = 0;
+    if (cursorRow  >= Grid::ROWS)  cursorRow  = Grid::ROWS - 1;
+    if (cursorCol2 < 0)            cursorCol2 = 0;
+    if (cursorCol2 >= Grid::COLS)  cursorCol2 = Grid::COLS - 1;
+    if (cursorRow2 < 0)            cursorRow2 = 0;
+    if (cursorRow2 >= Grid::ROWS)  cursorRow2 = Grid::ROWS - 1;
 }
+
+// ---------------------------------------------------------------------------
+// Placement
+// ---------------------------------------------------------------------------
 
 bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     if (plantCount >= MAX_PLANTS) return false;
@@ -421,17 +479,17 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
 
     switch (type) {
         case PLANT_SNOW_PEASHOOTER:
-            p = new SnowPeashooter(px, py); 
+            p = new SnowPeashooter(px, py);
             break;
         case PLANT_SUNFLOWER:
             p = new Sunflower(px, py);
             break;
         case PLANT_PEASHOOTER:
-        default:                    
-            p = new Peashooter(px, py);     
+        default:
+            p = new Peashooter(px, py);
             break;
     }
-    
+
     if (p) {
         spendSuns(cost);
         plants[plantCount++] = p;
@@ -442,19 +500,18 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Cursor
+// ---------------------------------------------------------------------------
+
 void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
     int px, py;
     grid.tileToPixel(col, row, px, py);
-
-    int w = Grid::TILE_SIZE;
-    int h = Grid::TILE_SIZE;
-
-    /* Bordure supérieure et inférieure. */
+    int w = Grid::TILE_SIZE, h = Grid::TILE_SIZE;
     for (int x = px; x < px + w; x++) {
         video[py * 320 + x]           = color;
         video[(py + h - 1) * 320 + x] = color;
     }
-    /* Bordure gauche et droite. */
     for (int y = py; y < py + h; y++) {
         video[y * 320 + px]           = color;
         video[y * 320 + (px + w - 1)] = color;
@@ -465,7 +522,7 @@ void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
 static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
     switch (type) {
         case PLANT_SNOW_PEASHOOTER:
-            w = SNOW_PEASHOOTER_WIDTH; 
+            w = SNOW_PEASHOOTER_WIDTH;
             h = SNOW_PEASHOOTER_HEIGHT;
             return snow_peashooter_frames[0];
         case PLANT_SUNFLOWER:
@@ -474,14 +531,14 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
             return sunflower_frames[0];
         case PLANT_PEASHOOTER:
         default:
-            w = PEASHOOTER_WIDTH; 
+            w = PEASHOOTER_WIDTH;
             h = PEASHOOTER_HEIGHT;
             return peashooter_frames[0];
     }
 }
 
 /* Affiche la file de plantes d'un joueur.
-   px, py : coin supérieur gauche du HUD. 
+   px, py : coin supérieur gauche du HUD.
    color : couleur du curseur roster. */
 void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color) {
     const int ICON_H  = 12;
@@ -520,28 +577,30 @@ void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned
             if (i == q.getRosterCursor()) {
                 unsigned char borderCol = flash ? SUN_HUD_RED : color;
                 for (int c = sx; c < sx + SLOT_W; c++) {
-                    video[py * 320 + c]                  = borderCol;
-                    video[(py + SLOT_H - 1) * 320 + c]   = borderCol;
+                    video[py * 320 + c]                = borderCol;
+                    video[(py + SLOT_H - 1) * 320 + c] = borderCol;
                 }
                 for (int r = py; r < py + SLOT_H; r++) {
-                    video[r * 320 + sx]                  = borderCol;
-                    video[r * 320 + (sx + SLOT_W - 1)]   = borderCol;
+                    video[r * 320 + sx]                = borderCol;
+                    video[r * 320 + (sx + SLOT_W - 1)] = borderCol;
                 }
             }
         }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Boucle principale
+// ---------------------------------------------------------------------------
+
 void PlantsVsZombies::start() {
     /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
     queue1.seed(2);
     queue2.seed(2);
 
-    lastSunTick = compt; // premier gain après SUN_TICK_INTERVAL depuis le lancement
-
-    int lastTick  = compt;
+    int lastTick     = compt;
     int renderFrames = 0;
-    int fpsTimer  = compt;
+    int fpsTimer     = compt;
 
     while (true) {
         while (compt == lastTick);
@@ -555,6 +614,7 @@ void PlantsVsZombies::start() {
             handleInput();
             update_screen();
             renderFrames++;
+            if (lives <= 0) break;
         }
 
         if (compt - fpsTimer >= 1000) {
@@ -564,4 +624,6 @@ void PlantsVsZombies::start() {
             fpsTimer     = compt;
         }
     }
+
+    showGameOver();
 }
