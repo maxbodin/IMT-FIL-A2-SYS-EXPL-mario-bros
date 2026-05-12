@@ -46,3 +46,6 @@ int Peashooter::getHeight() const {
 Bullet* Peashooter::createBullet(int bx, int by) {
     return new PeashooterBullet(bx, by);
 }
+
+bool Peashooter::hasSunReady() const { return false; }
+void Peashooter::resetSunTimer() {}

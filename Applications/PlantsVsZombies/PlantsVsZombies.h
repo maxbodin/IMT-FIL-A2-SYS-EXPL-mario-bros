@@ -4,8 +4,10 @@
 #include <Applications/PlantsVsZombies/Grid.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
+#include <Applications/PlantsVsZombies/Sunflower.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
+#include <Applications/PlantsVsZombies/Sun.h>
 #include <Applications/PlantsVsZombies/PlantQueue.h>
 #include <Applications/PlantsVsZombies/WaveManager.h>
 #include <drivers/Clavier.h>
@@ -22,6 +24,7 @@
 #define SUN_TICK_INTERVAL    5000  // ticks entre chaque gain automatique (5 s à 1000 Hz)
 #define SUN_TICK_AMOUNT        25  // soleils gagnés à chaque intervalle
 #define SUN_DISPLAY_DURATION 2000  // durée d'affichage du "+Y" en ticks (2 s)
+#define SUN_COLLECT_DISPLAY  1500  // durée d'affichage du "+X" après collecte
 
 #define DMG_INDICATOR_DURATION 400  // durée d'affichage en ticks (0.4 s)
 
@@ -59,6 +62,11 @@ private:
     int         lastFps           { 0 };
     int         lastSeconds       { 0 };
     int         sunFlashEndTick   { 0 };
+    int         sunCollectDisplayEnd { 0 };
+    int         lastSunCollected  { 0 };
+
+    Sun*        suns_on_ground[MAX_SUNS];
+    int         sunOnGroundCount  { 0 };
 
     DmgIndicator dmgIndicators[MAX_DMG_INDICATORS];
     int          dmgIndicatorCount { 0 };

@@ -1,0 +1,10 @@
+#ifndef SUNFLOWER_ANIM_H
+#define SUNFLOWER_ANIM_H
+
+#define SUNFLOWER_WIDTH  30
+#define SUNFLOWER_HEIGHT 33
+#define SUNFLOWER_FRAMES 6
+
+extern unsigned char sunflower_frames[SUNFLOWER_FRAMES][SUNFLOWER_WIDTH*SUNFLOWER_HEIGHT];
+
+#endif

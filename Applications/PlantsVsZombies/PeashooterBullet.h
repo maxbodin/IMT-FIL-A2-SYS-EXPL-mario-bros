@@ -17,7 +17,7 @@ public:
 
 private:
     static const int SPEED  = 4;
-    static const int DAMAGE = 5;
+    static const int DAMAGE = 30;
 };
 
 #endif
