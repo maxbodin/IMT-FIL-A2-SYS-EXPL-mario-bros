@@ -7,18 +7,19 @@
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
 #include <Applications/PlantsVsZombies/PlantQueue.h>
+#include <Applications/PlantsVsZombies/WaveManager.h>
 #include <drivers/Clavier.h>
 
 #define MAX_PLANTS  45
 #define MAX_BULLETS 90
-#define MAX_ZOMBIES 5
+#define MAX_ZOMBIES 20
 #define MAX_DMG_INDICATORS   16
 
 #define COLLISION_DISTANCE 5
 #define ZOMBIE_DAMAGE      25
 
 #define SUN_INITIAL           150
-#define SUN_TICK_INTERVAL   10000  // ticks entre chaque gain automatique (10 s à 1000 Hz)
+#define SUN_TICK_INTERVAL    5000  // ticks entre chaque gain automatique (5 s à 1000 Hz)
 #define SUN_TICK_AMOUNT        25  // soleils gagnés à chaque intervalle
 #define SUN_DISPLAY_DURATION 2000  // durée d'affichage du "+Y" en ticks (2 s)
 
@@ -65,6 +66,9 @@ private:
     void update_screen();
     void drawSunHud();
     void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
+
+    /* Wave manager — handles zombie spawning across waves. */
+    WaveManager waveManager;
 
     /* Files de plantes par joueur */
     PlantQueue  queue1;
