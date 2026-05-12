@@ -10,5 +10,7 @@ void set_palette_vga(unsigned char palette_vga[256][3]);
 void draw_sprite(const unsigned char* sprite, int w, int h, int dstX, int dstY);
 void draw_sprite_scaled(const unsigned char* sprite, int srcW, int srcH, int dstX, int dstY, int dstW, int dstH);
 void draw_number(int n, int x, int y, unsigned char color, int scale);
+void draw_char(char c, int x, int y, unsigned char color, int scale);
+void draw_text(const char* str, int x, int y, unsigned char color, int scale);
 void draw_hp_bar(int x, int y, int w, int hp, int maxHp);
 #endif
