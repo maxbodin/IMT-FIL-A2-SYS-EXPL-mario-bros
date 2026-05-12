@@ -4,16 +4,20 @@
 #include <Applications/PlantsVsZombies/Grid.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
+#include <Applications/PlantsVsZombies/Sunflower.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
+#include <Applications/PlantsVsZombies/DmgIndicator.h>
+#include <Applications/PlantsVsZombies/ObjectPool.h>
+#include <Applications/PlantsVsZombies/Sun.h>
 #include <Applications/PlantsVsZombies/PlantQueue.h>
 #include <Applications/PlantsVsZombies/WaveManager.h>
 #include <drivers/Clavier.h>
 
 #define MAX_PLANTS  45
-#define MAX_BULLETS 90
 #define MAX_ZOMBIES 20
-#define MAX_DMG_INDICATORS   16
+
+#define BULLET_POOL_SIZE 90
 
 #define COLLISION_DISTANCE 5
 #define ZOMBIE_DAMAGE      25
@@ -22,12 +26,7 @@
 #define SUN_TICK_INTERVAL    5000  // ticks entre chaque gain automatique (5 s à 1000 Hz)
 #define SUN_TICK_AMOUNT        25  // soleils gagnés à chaque intervalle
 #define SUN_DISPLAY_DURATION 2000  // durée d'affichage du "+Y" en ticks (2 s)
-
-#define DMG_INDICATOR_DURATION 400  // durée d'affichage en ticks (0.4 s)
-
-struct DmgIndicator {
-    int x, y, value, endTick;
-};
+#define SUN_COLLECT_DISPLAY  1500  // durée d'affichage du "+X" après collecte
 
 class PlantsVsZombies {
 public:
@@ -44,8 +43,8 @@ private:
     Grid        grid;
     Peashooter* plants[MAX_PLANTS];
     int         plantCount;
-    Bullet*     bullets[MAX_BULLETS];
-    int         bulletCount;
+    ObjectPool<Bullet, BULLET_POOL_SIZE>        bulletPool;
+    ObjectPool<DmgIndicator, MAX_DMG_INDICATORS> dmgPool;
     Zombie*     zombies[MAX_ZOMBIES];
     int         zombieCount;
 
@@ -59,9 +58,11 @@ private:
     int         lastFps           { 0 };
     int         lastSeconds       { 0 };
     int         sunFlashEndTick   { 0 };
+    int         sunCollectDisplayEnd { 0 };
+    int         lastSunCollected  { 0 };
 
-    DmgIndicator dmgIndicators[MAX_DMG_INDICATORS];
-    int          dmgIndicatorCount { 0 };
+    Sun*        suns_on_ground[MAX_SUNS];
+    int         sunOnGroundCount  { 0 };
 
     void update_screen();
     void drawSunHud();

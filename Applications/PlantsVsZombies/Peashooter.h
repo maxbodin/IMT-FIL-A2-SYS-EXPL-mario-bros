@@ -2,8 +2,7 @@
 #define PEASHOOTER_H
 
 #include <Applications/PlantsVsZombies/Entity.h>
-
-class Bullet;
+#include <Applications/PlantsVsZombies/Bullet.h>
 
 class Peashooter : public Entity {
 public:
@@ -16,9 +15,11 @@ public:
     void update();
     void render();
 
-    bool canShoot() const;
+    virtual bool canShoot() const;
     void resetCooldown();
-    virtual Bullet* createBullet(int bx, int by);
+    virtual BulletType getBulletType() const;
+    virtual bool hasSunReady() const;
+    virtual void resetSunTimer();
 
     int getWidth() const override;
     int getHeight() const override;

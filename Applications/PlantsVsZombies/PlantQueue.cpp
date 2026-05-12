@@ -2,6 +2,7 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
+#include <Applications/PlantsVsZombies/Sunflower.h>
 #include <sextant/interruptions/irq.h>
 
 extern volatile int compt;
@@ -27,9 +28,10 @@ PlantQueue::PlantQueue()
 PlantType PlantQueue::randomPlantType() {
     /* Mélange l'état PRNG avec compt pour plus de variété.  */
     rng_state ^= (unsigned int)compt;
-    return (lcg_next() % ROSTER_SIZE == 0)
-        ? PLANT_PEASHOOTER
-        : PLANT_SNOW_PEASHOOTER;
+    int roll = lcg_next() % ROSTER_SIZE;
+    if (roll == 0) return PLANT_PEASHOOTER;
+    if (roll == 1) return PLANT_SNOW_PEASHOOTER;
+    return PLANT_SUNFLOWER;
 }
 
 int PlantQueue::randomDelay() {
@@ -129,6 +131,8 @@ int PlantQueue::costOf(PlantType type) {
     switch (type) {
         case PLANT_SNOW_PEASHOOTER: 
             return SnowPeashooter::COST;
+        case PLANT_SUNFLOWER:
+            return Sunflower::COST;
         case PLANT_PEASHOOTER:
         default:                    
             return Peashooter::COST;
