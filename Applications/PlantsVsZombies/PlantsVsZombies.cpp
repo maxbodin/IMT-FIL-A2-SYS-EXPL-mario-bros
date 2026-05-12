@@ -1,9 +1,12 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
-#include <Applications/PlantsVsZombies/PeashooterBullet.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
+#include <Applications/PlantsVsZombies/Sunflower.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
 #include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/snow_peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/sunflower_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/sun_small_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/pvz_background_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
@@ -51,8 +54,18 @@ void PlantsVsZombies::drawSunHud() {
         video[(py + ph - 1) * 320 + (px + col)] = borderColor;
     }
 
-    // Icône soleil placeholder 14×14
-    plot_square(px + 4, py + 3, 14, SUN_HUD_YELLOW);
+    // Icône soleil animée dans le compteur de sun (sun_small, 2 frames)
+    {
+        static int sunHudFrame = 0;
+        static int sunHudAnimTick = 0;
+        if (++sunHudAnimTick >= 30) {
+            sunHudAnimTick = 0;
+            sunHudFrame = (sunHudFrame + 1) % SUN_SMALL_FRAMES;
+        }
+        draw_sprite_scaled(sun_small_frames[sunHudFrame],
+                           SUN_SMALL_WIDTH, SUN_SMALL_HEIGHT,
+                           px + 2, py + 2, 16, 16);
+    }
 
     // Nombre de soleils
     draw_number(suns, px + 22, py + 6, sunColor, 2);
@@ -62,19 +75,26 @@ void PlantsVsZombies::drawSunHud() {
         draw_plus(px + 52, py + 6, SUN_HUD_GREEN, 2);
         draw_number(SUN_TICK_AMOUNT, px + 60, py + 6, SUN_HUD_GREEN, 2);
     }
+
+    // Affichage "+X" après collecte de soleil
+    if (compt < sunCollectDisplayEnd) {
+        draw_plus(px + 52, py + 6, SUN_HUD_YELLOW, 2);
+        draw_number(lastSunCollected, px + 60, py + 6, SUN_HUD_YELLOW, 2);
+    }
 }
+
 /* Couleurs des curseurs (indices dans shared_palette).
    P1 = blanc (index 15), P2 = vert (index 205, même teinte que la barre de vie). */
 #define CURSOR_P1_COLOR 15
 #define CURSOR_P2_COLOR 205
 
-PlantsVsZombies::PlantsVsZombies() : plantCount(0), bulletCount(0), zombieCount(0), dmgIndicatorCount(0) {
+PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0) {
     for (int i = 0; i < MAX_PLANTS; i++)
         plants[i] = 0;
-    for (int i = 0; i < MAX_BULLETS; i++)
-        bullets[i] = 0;
     for (int i = 0; i < MAX_ZOMBIES; i++)
         zombies[i] = 0;
+    for (int i = 0; i < MAX_SUNS; i++)
+        suns_on_ground[i] = 0;
 }
 
 void PlantsVsZombies::init(Ecran* e,Clavier* c) {
@@ -109,7 +129,7 @@ void PlantsVsZombies::update_screen() {
         sunGainDisplayEnd = compt + SUN_DISPLAY_DURATION;
     }
 
-    // --- Plants: update + spawn bullets + remove dead ---
+    // --- Plants: update + spawn bullets/suns + remove dead ---
     for (int i = 0; i < plantCount; i++) {
         plants[i]->update();
         if (plants[i]->isDead()) {
@@ -124,12 +144,20 @@ void PlantsVsZombies::update_screen() {
             i--;
             continue;
         }
-        if (plants[i]->canShoot() && bulletCount < MAX_BULLETS) {
+
+        // Sunflower: produce suns on the ground
+        if (plants[i]->hasSunReady() && sunOnGroundCount < MAX_SUNS) {
+            suns_on_ground[sunOnGroundCount++] = new Sun(plants[i]->getX(), plants[i]->getY() + plants[i]->getHeight() - 10);
+            plants[i]->resetSunTimer();
+        }
+
+        // Shooters: spawn bullets via pool
+        if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
-            Bullet* b = plants[i]->createBullet(bx, by);
+            Bullet* b = bulletPool.acquire();
             if (b) {
-                bullets[bulletCount++] = b;
+                b->init(bx, by, plants[i]->getBulletType());
                 plants[i]->resetCooldown();
             }
         }
@@ -161,35 +189,59 @@ void PlantsVsZombies::update_screen() {
         }
     }
 
-    // --- Bullets: update + collision vs zombies + remove inactive ---
-    for (int i = 0; i < bulletCount; i++) {
-        bullets[i]->update();
-        if (bullets[i]->isActive()
-                && bullets[i]->getX() > bullets[i]->getSpawnX() + COLLISION_DISTANCE) {
+    // --- Bullets: update + collision vs zombies (object pool, no new/delete) ---
+    for (int i = 0; i < bulletPool.CAPACITY; i++) {
+        Bullet* b = bulletPool.get(i);
+        if (!b->isActive()) continue;
+
+        b->update();
+        if (!b->isActive()) continue; // went off-screen
+
+        if (b->getX() > b->getSpawnX() + COLLISION_DISTANCE) {
             for (int z = 0; z < zombieCount; z++) {
-                if (aabb(bullets[i]->getX(),  bullets[i]->getY(),
-                         bullets[i]->getWidth(), bullets[i]->getHeight(),
+                if (aabb(b->getX(),  b->getY(),
+                         b->getWidth(), b->getHeight(),
                          zombies[z]->getX(),  zombies[z]->getY(),
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
-                    int dmg = bullets[i]->getDamage();
-                    bullets[i]->onHit(*zombies[z]);
-                    bullets[i]->deactivate();
-                    /* Damage indicator */
-                    if (dmgIndicatorCount < MAX_DMG_INDICATORS) {
-                        dmgIndicators[dmgIndicatorCount].x = zombies[z]->getX();
-                        dmgIndicators[dmgIndicatorCount].y = zombies[z]->getY() - 4;
-                        dmgIndicators[dmgIndicatorCount].value = dmg;
-                        dmgIndicators[dmgIndicatorCount].endTick = compt + DMG_INDICATOR_DURATION;
-                        dmgIndicatorCount++;
-                    }
+                    int dmg = b->getDamage();
+                    b->onHit(*zombies[z]);
+                    bulletPool.release(b);
+                    /* Damage indicator via pool */
+                    DmgIndicator* di = dmgPool.acquire();
+                    if (di) di->init(zombies[z]->getX(),
+                                     zombies[z]->getY() - 4,
+                                     dmg, DMG_INDICATOR_DURATION);
                     break;
                 }
             }
         }
-        if (!bullets[i]->isActive()) {
-            delete bullets[i];
-            bullets[i] = bullets[--bulletCount];
-            bullets[bulletCount] = 0;
+    }
+
+    // --- Suns on ground: update + cursor collection ---
+    for (int i = 0; i < sunOnGroundCount; i++) {
+        suns_on_ground[i]->update();
+        if (!suns_on_ground[i]->isActive()) {
+            delete suns_on_ground[i];
+            suns_on_ground[i] = suns_on_ground[--sunOnGroundCount];
+            suns_on_ground[sunOnGroundCount] = 0;
+            i--;
+            continue;
+        }
+
+        // Check if any cursor is on the same tile.
+        int sc = suns_on_ground[i]->getTileCol();
+        int sr = suns_on_ground[i]->getTileRow();
+        if ((cursorCol == sc && cursorRow == sr) ||
+            (cursorCol2 == sc && cursorRow2 == sr)) {
+            int val = suns_on_ground[i]->getValue();
+            addSuns(val);
+
+            lastSunCollected = val;
+            sunCollectDisplayEnd = compt + SUN_COLLECT_DISPLAY;
+
+            delete suns_on_ground[i];
+            suns_on_ground[i] = suns_on_ground[--sunOnGroundCount];
+            suns_on_ground[sunOnGroundCount] = 0;
             i--;
         }
     }
@@ -198,17 +250,25 @@ void PlantsVsZombies::update_screen() {
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
-    clear_vga_screen(0); 
+    // Background image
+    for (int i = 0; i < 320 * 200; i++)
+        backbuffer[i] = pvz_background_sprite_data[i];
+
     grid.render();
 
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
 
-    for (int i = 0; i < bulletCount; i++)
-        if (bullets[i]) bullets[i]->render();
+    for (int i = 0; i < bulletPool.CAPACITY; i++) {
+        Bullet* b = bulletPool.get(i);
+        if (b->isActive()) b->render();
+    }
 
     for (int i = 0; i < zombieCount; i++)
         if (zombies[i]) zombies[i]->render();
+
+    for (int i = 0; i < sunOnGroundCount; i++)
+        if (suns_on_ground[i]) suns_on_ground[i]->render();
         
     unsigned char c1 = grid.isTileOccupied(cursorCol, cursorRow)   ? SUN_HUD_RED : CURSOR_P1_COLOR;
     unsigned char c2 = grid.isTileOccupied(cursorCol2, cursorRow2) ? SUN_HUD_RED : CURSOR_P2_COLOR;
@@ -241,19 +301,12 @@ void PlantsVsZombies::update_screen() {
 
     drawSunHud();
 
-    /* Damage indicators */
-    for (int i = 0; i < dmgIndicatorCount; i++) {
-        if (compt < dmgIndicators[i].endTick) {
-            int elapsed = DMG_INDICATOR_DURATION - (dmgIndicators[i].endTick - compt);
-            int floatY  = dmgIndicators[i].y - (elapsed / 50);
-            draw_number(dmgIndicators[i].value, dmgIndicators[i].x, floatY, SUN_HUD_YELLOW, 1);
-        } else {
-            dmgIndicatorCount--;
-            if (i < dmgIndicatorCount) {
-                dmgIndicators[i] = dmgIndicators[dmgIndicatorCount];
-            }
-            i--;
-        }
+    /* Damage indicators (object pool) */
+    for (int i = 0; i < dmgPool.CAPACITY; i++) {
+        DmgIndicator* di = dmgPool.get(i);
+        if (!di->isActive()) continue;
+        di->update();
+        if (di->isActive()) di->render();
     }
 
     /* Mise à jour et affichage des files de plantes */
@@ -370,6 +423,9 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
         case PLANT_SNOW_PEASHOOTER:
             p = new SnowPeashooter(px, py); 
             break;
+        case PLANT_SUNFLOWER:
+            p = new Sunflower(px, py);
+            break;
         case PLANT_PEASHOOTER:
         default:                    
             p = new Peashooter(px, py);     
@@ -412,6 +468,10 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
             w = SNOW_PEASHOOTER_WIDTH; 
             h = SNOW_PEASHOOTER_HEIGHT;
             return snow_peashooter_frames[0];
+        case PLANT_SUNFLOWER:
+            w = SUNFLOWER_WIDTH;
+            h = SUNFLOWER_HEIGHT;
+            return sunflower_frames[0];
         case PLANT_PEASHOOTER:
         default:
             w = PEASHOOTER_WIDTH; 
