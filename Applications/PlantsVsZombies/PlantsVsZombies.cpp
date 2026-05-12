@@ -10,7 +10,47 @@
 #include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
+#include <sextant/threads/Threads.h>
+#include <sextant/ordonnancements/preemptif/thread.h>
 #include <vga/vga.h>
+
+/* =========================================================================
+ * Threads de jeu — Round-Robin coopératif
+ *
+ * CHOIX DE L'ALGORITHME : Round-Robin coopératif (Yield() explicite)
+ *
+ * L'alternative préemptive (sched_clk hooked sur le timer IRQ) est écartée
+ * parce que irq_wrappers.S sauvegarde le contexte puis exécute le handler C
+ * puis fait "iret". Si le handler appelle cpu_context_switch(), l'"iret"
+ * suivant restaure le mauvais pile ← corruption silencieuse.
+ *
+ * Avec le mode coopératif :
+ *   - Un seul thread tourne à la fois (mono-core).
+ *   - Pas de race condition réelle entre threads : la mémoire partagée
+ *     (positions des entités, suns, lives…) ne peut pas être modifiée
+ *     pendant qu'un autre thread la lit — il faut qu'un thread cède
+ *     explicitement le CPU pour que l'autre puisse démarrer.
+ *   - Le sémaphore frameSem (initial=0) assure que le thread rendu ne tente
+ *     de dessiner qu'une fois que le thread logique a terminé une mise à jour.
+ *
+ * Flux d'exécution (une itération) :
+ *   LogicThread : handleInput() + updateLogic() → frameSem.V() → Yield()
+ *   RenderThread: tryP(frameSem) → renderFrame() → Yield()
+ *   (initial thread) : Yield() en boucle — thread idle
+ * ========================================================================= */
+
+/* PvZLogicThread : met à jour l'état du jeu toutes les 16 ms (≈ 62 fps),
+   puis signale le thread rendu via frameSem. */
+struct PvZLogicThread : public Threads {
+    PlantsVsZombies* game;
+    void run() override { game->runLogic(); }
+};
+
+/* PvZRenderThread : attend le signal du thread logique, dessine la frame. */
+struct PvZRenderThread : public Threads {
+    PlantsVsZombies* game;
+    void run() override { game->runRender(); }
+};
 
 extern volatile int compt;
 
@@ -109,7 +149,9 @@ static bool aabb(int ax, int ay, int aw, int ah,
         && ay < by + bh && ay + ah > by;
 }
 
-void PlantsVsZombies::update_screen() {
+/* [LOGIQUE] Met à jour l'état du jeu : vagues, plantes, zombies, balles, soleils.
+   Appelé par runLogic() toutes les 16 ms. Ne touche pas au framebuffer. */
+void PlantsVsZombies::updateLogic() {
 
     // --- Wave spawning ---
     if (zombieCount < MAX_ZOMBIES) {
@@ -140,13 +182,11 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
 
-        // Sunflower: produce suns on the ground
         if (plants[i]->hasSunReady() && sunOnGroundCount < MAX_SUNS) {
             suns_on_ground[sunOnGroundCount++] = new Sun(plants[i]->getX(), plants[i]->getY() + plants[i]->getHeight() - 10);
             plants[i]->resetSunTimer();
         }
 
-        // Shooters: spawn bullets via pool
         if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() + plants[i]->getHeight() / 4;
@@ -199,7 +239,7 @@ void PlantsVsZombies::update_screen() {
         if (!b->isActive()) continue;
 
         b->update();
-        if (!b->isActive()) continue; // went off-screen
+        if (!b->isActive()) continue;
 
         if (b->getX() > b->getSpawnX() + COLLISION_DISTANCE) {
             for (int z = 0; z < zombieCount; z++) {
@@ -210,7 +250,6 @@ void PlantsVsZombies::update_screen() {
                     int dmg = b->getDamage();
                     b->onHit(*zombies[z]);
                     bulletPool.release(b);
-                    /* Damage indicator via pool */
                     DmgIndicator* di = dmgPool.acquire();
                     if (di) di->init(zombies[z]->getX(),
                                      zombies[z]->getY() - 4,
@@ -232,25 +271,26 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
 
-        // Check if any cursor is on the same tile.
         int sc = suns_on_ground[i]->getTileCol();
         int sr = suns_on_ground[i]->getTileRow();
         if ((cursorCol == sc && cursorRow == sr) ||
             (cursorCol2 == sc && cursorRow2 == sr)) {
             int val = suns_on_ground[i]->getValue();
             addSuns(val);
-
             lastSunCollected     = val;
             sunCollectDisplayEnd = compt + SUN_COLLECT_DISPLAY;
-
             delete suns_on_ground[i];
             suns_on_ground[i] = suns_on_ground[--sunOnGroundCount];
             suns_on_ground[sunOnGroundCount] = 0;
             i--;
         }
     }
+}
 
-    // --- Rendu ---
+/* [RENDU] Compose le backbuffer et le copie dans le framebuffer VGA.
+   Appelé par runRender() après que runLogic() a signalé une nouvelle frame
+   via frameSem. Aucune modification de l'état du jeu ici. */
+void PlantsVsZombies::renderFrame() {
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
@@ -306,7 +346,6 @@ void PlantsVsZombies::update_screen() {
     drawSunHud();
     drawLivesHud();
 
-    /* Damage indicators (object pool) */
     for (int i = 0; i < dmgPool.CAPACITY; i++) {
         DmgIndicator* di = dmgPool.get(i);
         if (!di->isActive()) continue;
@@ -314,7 +353,6 @@ void PlantsVsZombies::update_screen() {
         if (di->isActive()) di->render();
     }
 
-    /* Mise à jour et affichage des files de plantes */
     queue1.update();
     queue2.update();
     drawQueueHud(queue1, 2,   186, CURSOR_P1_COLOR);
@@ -590,7 +628,75 @@ void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned
 }
 
 // ---------------------------------------------------------------------------
-// Boucle principale
+// Boucles des threads
+// ---------------------------------------------------------------------------
+
+/* [THREAD LOGIQUE] Tourne en Round-Robin coopératif.
+   Toutes les 16 ms : lit les entrées clavier, met à jour l'état du jeu,
+   puis signale le thread rendu via frameSem. Cède le CPU (Yield) après
+   chaque itération pour laisser le thread rendu s'exécuter.
+
+   Le compteur de ticks (compt) est incrémenté par l'IRQ timer (1000 Hz).
+   On attend le prochain tick en cédant le CPU plutôt qu'en spinant
+   (while + Yield), ce qui évite d'affamer le thread rendu pendant l'attente. */
+void PlantsVsZombies::runLogic() {
+    int lastTick     = compt;
+    int fpsTimer     = compt;
+    int renderFrames = 0;
+
+    while (true) {
+        /* Attente coopérative du prochain tick — Yield() plutôt que spin pur
+           afin de laisser le thread rendu dessiner la frame précédente. */
+        while (compt == lastTick) thread_yield();
+        lastTick = compt;
+
+        if ((compt % 16) == 0) {
+            /* L'input est traité avant la logique pour que les actions du joueur
+               (déplacement curseur, placement de plante) soient prises en compte
+               dans la frame courante. */
+            handleInput();
+            updateLogic();
+
+            /* Signal au thread rendu : une nouvelle frame est prête. */
+            frameSem.V();
+            renderFrames++;
+        }
+
+        /* Mise à jour du compteur FPS une fois par seconde. */
+        if (compt - fpsTimer >= 1000) {
+            lastFps      = renderFrames;
+            lastSeconds  = compt / 1000;
+            renderFrames = 0;
+            fpsTimer     = compt;
+        }
+
+        /* Fin de partie : showGameOver() ne retourne jamais (boucle infinie). */
+        if (lives <= 0) showGameOver();
+
+        /* Cède le CPU au thread rendu (et éventuellement au thread idle). */
+        thread_yield();
+    }
+}
+
+/* [THREAD RENDU] Tourne en Round-Robin coopératif.
+   Attend le signal de runLogic() via frameSem (tryP non bloquant + Yield),
+   puis compose le backbuffer et le copie dans le framebuffer VGA. */
+void PlantsVsZombies::runRender() {
+    while (true) {
+        /* tryP() non bloquant : si aucune frame logique n'est prête, on cède
+           le CPU immédiatement plutôt que de spinner (important en coopératif :
+           le spinning empêcherait runLogic de s'exécuter). */
+        while (!frameSem.tryP()) thread_yield();
+
+        renderFrame();
+
+        /* Cède le CPU après chaque frame rendue. */
+        thread_yield();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Démarrage — crée les threads et devient thread idle
 // ---------------------------------------------------------------------------
 
 void PlantsVsZombies::start() {
@@ -598,32 +704,26 @@ void PlantsVsZombies::start() {
     queue1.seed(2);
     queue2.seed(2);
 
-    int lastTick     = compt;
-    int renderFrames = 0;
-    int fpsTimer     = compt;
+    /* [THREADS] Création des threads de jeu.
+       Les structures sont statiques : elles persistent au-delà du retour de
+       start() (qui ne se produit jamais en pratique), et leur durée de vie
+       est celle du programme.
 
-    while (true) {
-        while (compt == lastTick);
-        lastTick = compt;
+       Ordre de création : logicThread en premier, renderThread en second.
+       L'ordonnanceur Round-Robin va tourner : init → logicThread → renderThread
+       → init (idle) → logicThread → … */
+    static PvZLogicThread  logicThread;
+    static PvZRenderThread renderThread;
 
-        if ((compt % 16) == 0) {
-            /* [EXPLICATION] handleInput() draine la file d'événements clavier accumulés
-               depuis le dernier frame (~16 ms).  Grâce à l'architecture producteur/
-               consommateur, chaque appui physique génère exactement un événement make :
-               pas de répétition typematique, pas de front montant à détecter.         */
-            handleInput();
-            update_screen();
-            renderFrames++;
-            if (lives <= 0) break;
-        }
+    logicThread.game  = this;
+    renderThread.game = this;
 
-        if (compt - fpsTimer >= 1000) {
-            lastFps      = renderFrames;
-            lastSeconds  = compt / 1000;
-            renderFrames = 0;
-            fpsTimer     = compt;
-        }
-    }
+    logicThread.start();
+    renderThread.start();
 
-    showGameOver();
+    /* Le thread initial (celui qui a exécuté main()) devient un thread idle :
+       il cède le CPU indéfiniment. Les threads de jeu ne terminent jamais
+       (showGameOver() boucle à l'infini), donc ce thread idle ne reprend
+       jamais la main en pratique. */
+    while (true) thread_yield();
 }

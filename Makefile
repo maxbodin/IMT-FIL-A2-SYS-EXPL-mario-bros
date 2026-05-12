@@ -25,7 +25,7 @@ LD_WindowsNT=ld
 #-------------------
 ## Partie commune a toutes les configurations
 
-CPPFLAGS  = -gdwarf-2 -g3 -Wall -fno-builtin -fno-rtti -fno-exceptions -nostdinc --std=c++11 $($(COMPILATEUR_OPTION))
+CPPFLAGS  = -gdwarf-2 -g3 -Wall -fno-builtin -fno-rtti -fno-exceptions -fno-threadsafe-statics -nostdinc --std=c++11 $($(COMPILATEUR_OPTION))
 LDFLAGS = --warn-common -nostdlib $($(LIEUR_OPTION))
 
 PWD :=.
@@ -35,7 +35,7 @@ MV = mv -f
 
 KERNEL_OBJ   = sextant.elf
 
-OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_bullet_sprite snow_peashooter_sprite grass_tile_sprite sunflower_sprite sun_big_sprite sun_small_sprite pvz_background_sprite Entity Bullet DmgIndicator Peashooter SnowPeashooter Sunflower Sun Grid Tile PlantsVsZombies PlantQueue WaveManager Zombie zombie_walk_sprite zombie_fight_sprite Spinlock Semaphore KeyboardQueue
+OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_bullet_sprite snow_peashooter_sprite grass_tile_sprite sunflower_sprite sun_big_sprite sun_small_sprite pvz_background_sprite Entity Bullet DmgIndicator Peashooter SnowPeashooter Sunflower Sun Grid Tile PlantsVsZombies PlantQueue WaveManager Zombie zombie_walk_sprite zombie_fight_sprite Spinlock Semaphore KeyboardQueue cpu_context cpu_context_switch sched thread Threads
 
 
 OBJECTS=$(patsubst %,build/all-o/%.o,$(OBJECTSNAMES))					  		
