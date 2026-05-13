@@ -17,6 +17,7 @@
 #include <Applications/PlantsVsZombies/sprites/plants/gatlingpea_idle_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/objects/sun_small_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/ui/background_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/ui/game_over_sprite.h>
 #include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
@@ -393,11 +394,36 @@ void PlantsVsZombies::renderFrame() {
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
-    // Background image
-    for (int i = 0; i < 320 * 200; i++)
-        backbuffer[i] = background_sprite_data[i];
+    if (gameOver) {
+        // Clear to black
+        for (int i = 0; i < 320 * 200; i++)
+            backbuffer[i] = 0;
 
-    grid.render();
+        // Draw game over sprite centered
+        int imgX = (320 - GAME_OVER_WIDTH) / 2;
+        int imgY = 4;
+        draw_sprite(game_over_sprite_data, GAME_OVER_WIDTH, GAME_OVER_HEIGHT, imgX, imgY);
+
+        // Stats below the image
+        int statsY = imgY + GAME_OVER_HEIGHT + 6;
+
+        int len = 0, tmp = lastSeconds;
+        if (tmp == 0) len = 1; else { while (tmp > 0) { len++; tmp /= 10; } }
+        int sx = (320 - (len + 1) * 8) / 2;
+        draw_number(lastSeconds, sx, statsY, 15, 2);
+        draw_text("s", sx + len * 8, statsY, 15, 2);
+
+        draw_text("wave", 134, statsY + 14, 15, 2);
+        draw_number(waveManager.getWave(), 134 + 4 * 8, statsY + 14, 15, 2);
+
+        int restartX = (320 - 22 * 4) / 2;
+        draw_text("press space to restart", restartX, statsY + 30, 15, 1);
+    } else {
+        // Normal game rendering
+        for (int i = 0; i < 320 * 200; i++)
+            backbuffer[i] = background_sprite_data[i];
+
+        grid.render();
 
     for (int i = 0; i < plantCount; i++)
         if (plants[i]) plants[i]->render();
@@ -460,6 +486,8 @@ void PlantsVsZombies::renderFrame() {
     /* Wave start text (Ready / Set / Plant!) */
     waveManager.renderStartText();
 
+    } // end if (!gameOver) — normal rendering
+
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
     for (int i = 0; i < 320 * 200; i++) dst[i] = src[i];
@@ -500,24 +528,87 @@ void PlantsVsZombies::drawLivesHud() {
 // ---------------------------------------------------------------------------
 
 void PlantsVsZombies::showGameOver() {
-    for (int i = 0; i < 320 * 200; i++)
-        video[i] = 0;
+    gameOver = true;
 
-    // "GAME OVER" : 9 chars × (3+1) × scale3 = 108 px → centré à x=106
-    draw_text("GAME OVER", 106, 85, 32, 3);
+    // Drain any buffered key events
+    KeyEvent evt;
+    while (keyboardQueue.pop(evt)) {}
 
-    // Temps de survie (secondes)
-    int len = 0, tmp = lastSeconds;
-    if (tmp == 0) len = 1; else { while (tmp > 0) { len++; tmp /= 10; } }
-    int sx = (320 - (len + 1) * 8) / 2;   // chaque char = 4*scale2 = 8px
-    draw_number(lastSeconds, sx, 112, 15, 2);
-    draw_text("s", sx + len * 8, 112, 15, 2);
+    // Keep signaling the render thread so it draws the game over screen,
+    // while waiting for space press.
+    while (true) {
+        frameSem.V();
+        thread_yield();
+        while (keyboardQueue.pop(evt)) {
+            if (evt.pressed && evt.scanCode == SC_P1_PLACE) {
+                gameOver = false;
+                resetGame();
+                return;
+            }
+        }
+    }
+}
 
-    // Vague atteinte
-    draw_text("wave", 134, 126, 15, 2);
-    draw_number(waveManager.getWave(), 134 + 4 * 8, 126, 15, 2);
+void PlantsVsZombies::resetGame() {
+    // Delete all plants
+    for (int i = 0; i < plantCount; i++) {
+        if (plants[i]) {
+            int tc, tr;
+            if (grid.pixelToTile(plants[i]->getX(), plants[i]->getY(), tc, tr)) {
+                Tile* t = grid.getTile(tc, tr);
+                if (t) t->setState(TileState::Empty);
+            }
+            delete plants[i];
+            plants[i] = 0;
+        }
+    }
+    plantCount = 0;
 
-    while (true) {}
+    // Delete all zombies
+    for (int i = 0; i < zombieCount; i++) {
+        if (zombies[i]) { delete zombies[i]; zombies[i] = 0; }
+    }
+    zombieCount = 0;
+
+    // Release all bullets and damage indicators
+    for (int i = 0; i < bulletPool.CAPACITY; i++) {
+        Bullet* b = bulletPool.get(i);
+        if (b->isActive()) { b->deactivate(); bulletPool.release(b); }
+    }
+    for (int i = 0; i < dmgPool.CAPACITY; i++) {
+        DmgIndicator* di = dmgPool.get(i);
+        if (di->isActive()) di->deactivate();
+    }
+
+    // Delete all suns on ground
+    for (int i = 0; i < sunOnGroundCount; i++) {
+        if (suns_on_ground[i]) { delete suns_on_ground[i]; suns_on_ground[i] = 0; }
+    }
+    sunOnGroundCount = 0;
+
+    // Reset game state
+    suns                 = SUN_INITIAL;
+    lastSunTick          = compt;
+    sunGainDisplayEnd    = 0;
+    sunFlashEndTick      = 0;
+    sunCollectDisplayEnd = 0;
+    lastSunCollected     = 0;
+    lives                = 3;
+    lastFps              = 0;
+    lastSeconds          = 0;
+
+    // Reset cursors
+    cursorCol  = 0;
+    cursorRow  = 0;
+    cursorCol2 = Grid::COLS - 1;
+    cursorRow2 = Grid::ROWS - 1;
+
+    // Reset wave manager and queues
+    waveManager.reset();
+    queue1.reset();
+    queue2.reset();
+    queue1.seed(2);
+    queue2.seed(2);
 }
 
 // ---------------------------------------------------------------------------
@@ -810,8 +901,12 @@ void PlantsVsZombies::runLogic() {
             fpsTimer     = compt;
         }
 
-        /* Fin de partie : showGameOver() ne retourne jamais (boucle infinie). */
-        if (lives <= 0) showGameOver();
+        /* Fin de partie : attend que le joueur appuie sur espace, puis reset. */
+        if (lives <= 0) {
+            showGameOver();
+            fpsTimer     = compt;
+            renderFrames = 0;
+        }
 
         /* Cède le CPU au thread rendu (et éventuellement au thread idle). */
         thread_yield();

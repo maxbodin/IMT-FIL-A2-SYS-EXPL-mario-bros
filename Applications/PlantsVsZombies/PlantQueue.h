@@ -59,6 +59,7 @@ public:
     int        getRosterCursor()     const { return rosterCursor; }
     void       moveRosterLeft();
     void       moveRosterRight();
+    void       reset();
 
     /* Coût en soleils du type de plante donné. */
     static int costOf(PlantType type);

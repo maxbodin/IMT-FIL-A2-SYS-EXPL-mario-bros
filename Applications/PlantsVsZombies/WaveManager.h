@@ -27,6 +27,7 @@ public:
 
     int  getWave()      const { return wave; }
     bool isInPause()    const { return pauseUntil > 0; }
+    void reset();
 
     /* Wave start text: returns 0=none, 1=Wave N, 2=Ready, 3=Set, 4=Plant! */
     int  getStartTextPhase() const;
