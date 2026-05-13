@@ -16,6 +16,16 @@ WaveManager::WaveManager()
     : wave(0), remaining(0), nextSpawnTick(0), pauseUntil(0), startTextTick(0),
       currentZombieCount(0), wavePendingClear(false) {}
 
+void WaveManager::reset() {
+    wave = 0;
+    remaining = 0;
+    nextSpawnTick = 0;
+    pauseUntil = 0;
+    startTextTick = 0;
+    currentZombieCount = 0;
+    wavePendingClear = false;
+}
+
 /* Integer log2 approximation */
 static int ilog2(int v) {
     int r = 0;

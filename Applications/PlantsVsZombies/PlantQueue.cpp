@@ -30,6 +30,15 @@ PlantQueue::PlantQueue()
         slots[i] = PLANT_PEASHOOTER;
 }
 
+void PlantQueue::reset() {
+    slotCount = 0;
+    nextSpawnTick = 0;
+    flashEndTick = 0;
+    rosterCursor = 0;
+    for (int i = 0; i < QUEUE_CAPACITY; i++)
+        slots[i] = PLANT_PEASHOOTER;
+}
+
 PlantType PlantQueue::randomPlantType() {
     /* Mélange l'état PRNG avec compt pour plus de variété.  */
     rng_state ^= (unsigned int)compt;
