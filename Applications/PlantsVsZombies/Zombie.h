@@ -5,7 +5,7 @@
 
 class Zombie : public Entity {
 public:
-    static const int HP        = 300;
+    static const int HP        = 60;
     static const int HIT_DELAY = 150; // ticks entre chaque coup
 
     Zombie(int x, int y);

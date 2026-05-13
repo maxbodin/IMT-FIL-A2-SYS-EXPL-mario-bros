@@ -6,6 +6,7 @@
 #include <sextant/interruptions/handler/handler_tic.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
+#include <sextant/ordonnancements/preemptif/thread.h>
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
 
 extern char __e_kernel;
@@ -25,8 +26,21 @@ extern "C" void Sextant_main(unsigned long magic, unsigned long addr){
 
 	mem_setup(&__e_kernel, (mbi->mem_upper << 10) + (1 << 20), 0);
 
+	/* [ORDONNANCEMENT] Initialisation du sous-système de threads.
+	   - sched_subsystem_setup() initialise les files de l'ordonnanceur Round-Robin.
+	   - thread_subsystem_setup() enregistre le thread initial (celui qui exécute
+	     ce code) comme premier thread du système, en lui associant sa pile.
+	   L'adresse de pile est lue depuis le registre ESP au moment de l'appel.
+	   La taille (16 Ko) est une estimation conservatrice pour un thread kernel. */
+	sched_subsystem_setup();
+	{
+		vaddr_t esp;
+		asm volatile("movl %%esp, %0" : "=r"(esp));
+		thread_subsystem_setup(esp - 0x4000, 0x4000);
+	}
+
 	PlantsVsZombies pvzgame;
 	pvzgame.init(&Ecran(), &clavier);
-	pvzgame.start();
+	pvzgame.start();  /* Crée les threads du jeu et cède le CPU. Ne retourne jamais. */
 
 }
