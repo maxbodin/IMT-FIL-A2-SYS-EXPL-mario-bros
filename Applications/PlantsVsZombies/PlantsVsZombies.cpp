@@ -1,13 +1,23 @@
 #include <Applications/PlantsVsZombies/PlantsVsZombies.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Sunflower.h>
+#include <Applications/PlantsVsZombies/Jalapeno.h>
+#include <Applications/PlantsVsZombies/PotatoMine.h>
+#include <Applications/PlantsVsZombies/WallNut.h>
+#include <Applications/PlantsVsZombies/Chomper.h>
+#include <Applications/PlantsVsZombies/GatlingPea.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
-#include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/snow_peashooter_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/sunflower_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/sun_small_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/pvz_background_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/snow_peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/sunflower_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/jalapeno_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/potato_mine_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/wallnut_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/chomper_idle_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/gatlingpea_idle_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/sun_small_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/ui/background_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
 #include <sextant/threads/Threads.h>
@@ -153,11 +163,17 @@ static bool aabb(int ax, int ay, int aw, int ah,
    Appelé par runLogic() toutes les 16 ms. Ne touche pas au framebuffer. */
 void PlantsVsZombies::updateLogic() {
 
-    // --- Wave spawning ---
+    // --- Wave spawning (always runs to track wave state) ---
+    waveManager.setZombieCount(zombieCount);
     if (zombieCount < MAX_ZOMBIES) {
         Zombie* z = waveManager.update();
         if (z) zombies[zombieCount++] = z;
     }
+
+    // --- Pause all game logic while start text is displayed ---
+    bool gamePaused = (waveManager.getStartTextPhase() != 0);
+
+    if (!gamePaused) {
 
     // --- Gain automatique de soleils ---
     if (compt - lastSunTick >= SUN_TICK_INTERVAL) {
@@ -183,13 +199,13 @@ void PlantsVsZombies::updateLogic() {
         }
 
         if (plants[i]->hasSunReady() && sunOnGroundCount < MAX_SUNS) {
-            suns_on_ground[sunOnGroundCount++] = new Sun(plants[i]->getX(), plants[i]->getY() + plants[i]->getHeight() - 10);
+            suns_on_ground[sunOnGroundCount++] = new Sun(plants[i]->getX(), plants[i]->getY() + plants[i]->getHeight() / 2);
             plants[i]->resetSunTimer();
         }
 
         if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
-            int by = plants[i]->getY() + plants[i]->getHeight() / 4;
+            int by = plants[i]->getY() - plants[i]->getHeight() / 4;
             Bullet* b = bulletPool.acquire();
             if (b) {
                 b->init(bx, by, plants[i]->getBulletType());
@@ -198,7 +214,47 @@ void PlantsVsZombies::updateLogic() {
         }
     }
 
-    // --- Zombies: collision plante + mouvement + suppression ---
+    // --- Potato mines: tile-based detection (separate from general collision) ---
+    for (int p = 0; p < plantCount; p++) {
+        if (plants[p]->getPlantType() != PLANT_POTATO_MINE) continue;
+        PotatoMine* pm = (PotatoMine*)plants[p];
+        if (pm->isExploding()) continue;
+
+        int mineTileCol, mineTileRow;
+        if (!grid.pixelToTile(plants[p]->getX(), plants[p]->getY(), mineTileCol, mineTileRow))
+            continue;
+
+        for (int i = 0; i < zombieCount; i++) {
+            int zCenterX = zombies[i]->getX() + zombies[i]->getWidth() / 2;
+            int zFootY   = zombies[i]->getY() + zombies[i]->getHeight();
+            int zcol, zrow;
+            if (!grid.pixelToTile(zCenterX, zFootY - 1, zcol, zrow)) continue;
+            if (zcol == mineTileCol && zrow == mineTileRow) {
+                pm->explode();
+                /* Damage all zombies on explosion tile and adjacent tiles */
+                for (int z2 = 0; z2 < zombieCount; z2++) {
+                    int z2cx = zombies[z2]->getX() + zombies[z2]->getWidth() / 2;
+                    int z2fy = zombies[z2]->getY() + zombies[z2]->getHeight();
+                    int z2col, z2row;
+                    if (!grid.pixelToTile(z2cx, z2fy - 1, z2col, z2row)) continue;
+                    int dc = z2col - mineTileCol;
+                    int dr = z2row - mineTileRow;
+                    if (dc < 0) dc = -dc;
+                    if (dr < 0) dr = -dr;
+                    if (dc <= 1 && dr <= 1) {
+                        zombies[z2]->takeDamage(pm->getExplosionDamage());
+                        DmgIndicator* di = dmgPool.acquire();
+                        if (di) di->init(zombies[z2]->getX(),
+                                         zombies[z2]->getY() - 4,
+                                         pm->getExplosionDamage(), DMG_INDICATOR_DURATION);
+                    }
+                }
+                break; // mine already triggered
+            }
+        }
+    }
+
+    // --- Zombies: block/unblock + damage plant + special interactions + update + remove dead ---
     for (int i = 0; i < zombieCount; i++) {
         bool blocked = false;
         for (int p = 0; p < plantCount; p++) {
@@ -207,7 +263,42 @@ void PlantsVsZombies::updateLogic() {
             if (dy < 0) dy = -dy;
             if (dx >= 0 && dx < COLLISION_DISTANCE && dy < Grid::TILE_SIZE) {
                 blocked = true;
-                if (zombies[i]->canHit()) {
+
+                PlantType pt = plants[p]->getPlantType();
+
+                /* Jalapeno: ignite on contact, apply fire to zombie */
+                if (pt == PLANT_JALAPENO) {
+                    Jalapeno* jal = (Jalapeno*)plants[p];
+                    if (!jal->isOnFire()) {
+                        jal->ignite();
+                        zombies[i]->applyFire(jal->getFireDamage(), jal->getFireEffectDuration());
+                    }
+                    /* Jalapeno doesn't block — zombie walks through the fire */
+                    blocked = false;
+                }
+
+                /* PotatoMine: don't block (explosion handled in separate pass above) */
+                if (pt == PLANT_POTATO_MINE) {
+                    blocked = false;
+                }
+
+                /* Chomper: eat zombie on contact if idle */
+                if (pt == PLANT_CHOMPER) {
+                    Chomper* ch = (Chomper*)plants[p];
+                    if (ch->getChomperState() == CHOMP_IDLE) {
+                        ch->startAttack();
+                        zombies[i]->takeDamage(9999); // instant kill
+                        DmgIndicator* di = dmgPool.acquire();
+                        if (di) di->init(zombies[i]->getX(),
+                                         zombies[i]->getY() - 4,
+                                         9999, DMG_INDICATOR_DURATION);
+                    }
+                    /* Chomper doesn't block while chewing — vulnerable */
+                    if (ch->isChewing()) blocked = false;
+                }
+
+                /* Normal plants (peashooter, sunflower, wallnut): zombie blocks and attacks */
+                if (blocked && zombies[i]->canHit()) {
                     plants[p]->takeDamage(ZOMBIE_DAMAGE);
                     zombies[i]->resetCooldown();
                 }
@@ -239,7 +330,12 @@ void PlantsVsZombies::updateLogic() {
         if (!b->isActive()) continue;
 
         b->update();
-        if (!b->isActive()) continue;
+        if (!b->isActive()) {
+            bulletPool.release(b);
+            continue;
+        }
+
+        if (b->isImpacting()) continue;
 
         if (b->getX() > b->getSpawnX() + COLLISION_DISTANCE) {
             for (int z = 0; z < zombieCount; z++) {
@@ -249,7 +345,8 @@ void PlantsVsZombies::updateLogic() {
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
                     int dmg = b->getDamage();
                     b->onHit(*zombies[z]);
-                    bulletPool.release(b);
+                    b->startImpact();
+                    /* Damage indicator via pool */
                     DmgIndicator* di = dmgPool.acquire();
                     if (di) di->init(zombies[z]->getX(),
                                      zombies[z]->getY() - 4,
@@ -287,6 +384,9 @@ void PlantsVsZombies::updateLogic() {
     }
 }
 
+    } // end if (!gamePaused)
+}
+
 /* [RENDU] Compose le backbuffer et le copie dans le framebuffer VGA.
    Appelé par runRender() après que runLogic() a signalé une nouvelle frame
    via frameSem. Aucune modification de l'état du jeu ici. */
@@ -296,7 +396,7 @@ void PlantsVsZombies::renderFrame() {
 
     // Background image
     for (int i = 0; i < 320 * 200; i++)
-        backbuffer[i] = pvz_background_sprite_data[i];
+        backbuffer[i] = background_sprite_data[i];
 
     grid.render();
 
@@ -357,6 +457,9 @@ void PlantsVsZombies::renderFrame() {
     queue2.update();
     drawQueueHud(queue1, 2,   186, CURSOR_P1_COLOR);
     drawQueueHud(queue2, 200, 186, CURSOR_P2_COLOR);
+
+    /* Wave start text (Ready / Set / Plant!) */
+    waveManager.renderStartText();
 
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
@@ -437,6 +540,9 @@ void PlantsVsZombies::showGameOver() {
    La section critique (disable_IRQs dans pop) protège tryP() contre V() en IRQ :
    voir KeyboardQueue.cpp pour le détail.                                      */
 void PlantsVsZombies::handleInput() {
+    /* Block all input while wave start text is displayed. */
+    if (waveManager.getStartTextPhase() != 0) return;
+
     KeyEvent evt;
     while (keyboardQueue.pop(evt)) {
         if (!evt.pressed) continue;
@@ -522,6 +628,21 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
         case PLANT_SUNFLOWER:
             p = new Sunflower(px, py);
             break;
+        case PLANT_JALAPENO:
+            p = new Jalapeno(px, py);
+            break;
+        case PLANT_POTATO_MINE:
+            p = new PotatoMine(px, py);
+            break;
+        case PLANT_WALLNUT:
+            p = new WallNut(px, py);
+            break;
+        case PLANT_CHOMPER:
+            p = new Chomper(px, py);
+            break;
+        case PLANT_GATLING_PEA:
+            p = new GatlingPea(px, py);
+            break;
         case PLANT_PEASHOOTER:
         default:
             p = new Peashooter(px, py);
@@ -567,6 +688,26 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
             w = SUNFLOWER_WIDTH;
             h = SUNFLOWER_HEIGHT;
             return sunflower_frames[0];
+        case PLANT_JALAPENO:
+            w = JALAPENO_WIDTH;
+            h = JALAPENO_HEIGHT;
+            return jalapeno_frames[0];
+        case PLANT_POTATO_MINE:
+            w = POTATO_MINE_WIDTH;
+            h = POTATO_MINE_HEIGHT;
+            return potato_mine_frames[0];
+        case PLANT_WALLNUT:
+            w = WALLNUT_WIDTH;
+            h = WALLNUT_HEIGHT;
+            return wallnut_frames[0];
+        case PLANT_CHOMPER:
+            w = CHOMPER_IDLE_WIDTH;
+            h = CHOMPER_IDLE_HEIGHT;
+            return chomper_idle_frames[0];
+        case PLANT_GATLING_PEA:
+            w = GATLINGPEA_IDLE_WIDTH;
+            h = GATLINGPEA_IDLE_HEIGHT;
+            return gatlingpea_idle_frames[0];
         case PLANT_PEASHOOTER:
         default:
             w = PEASHOOTER_WIDTH;

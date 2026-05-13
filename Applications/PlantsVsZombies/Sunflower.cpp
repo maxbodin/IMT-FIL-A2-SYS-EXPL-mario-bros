@@ -1,5 +1,5 @@
 #include <Applications/PlantsVsZombies/Sunflower.h>
-#include <Applications/PlantsVsZombies/sprites/sunflower_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/sunflower_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
@@ -45,6 +45,8 @@ void Sunflower::render() {
 
 bool Sunflower::canShoot() const { return false; }
 BulletType Sunflower::getBulletType() const { return BULLET_PEASHOOTER; }
+
+PlantType Sunflower::getPlantType() const { return PLANT_SUNFLOWER; }
 
 bool Sunflower::hasSunReady() const {
     return state != DYING && state != DEAD && compt >= nextSunTick;

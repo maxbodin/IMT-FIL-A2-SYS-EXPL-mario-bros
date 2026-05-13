@@ -1,6 +1,6 @@
 #include <Applications/PlantsVsZombies/Sun.h>
 #include <Applications/PlantsVsZombies/Grid.h>
-#include <Applications/PlantsVsZombies/sprites/sun_big_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/sun_big_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
@@ -15,9 +15,9 @@ Sun::Sun(int x, int y)
     : x(x), y(y), frame(0), animTick(0), active(true)
 {
     sun_rng ^= (unsigned int)compt;
-    // Offset the sun position slightly randomly around the plant
+    // Offset the sun position slightly randomly around the plant feet
     int offsetX = (int)(sun_lcg() % 13) - 6;  // -6 to +6
-    int offsetY = (int)(sun_lcg() % 8) + 4;   // +4 to +11 (below plant)
+    int offsetY = (int)(sun_lcg() % 5) - 2;   // -2 to +2 (near feet level)
     this->x = x + offsetX;
     this->y = y + offsetY;
 
@@ -51,7 +51,7 @@ void Sun::update() {
 
 void Sun::render() {
     if (!active) return;
-    draw_sprite(sun_big_frames[frame], SUN_BIG_WIDTH, SUN_BIG_HEIGHT, x, y);
+    draw_sprite_alpha(sun_big_frames[frame], SUN_BIG_WIDTH, SUN_BIG_HEIGHT, x, y, 179);
 }
 
 bool Sun::isActive()    const { return active; }

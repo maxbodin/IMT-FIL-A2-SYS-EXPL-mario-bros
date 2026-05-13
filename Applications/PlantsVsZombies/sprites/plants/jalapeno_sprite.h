@@ -1,0 +1,10 @@
+#ifndef JALAPENO_ANIM_H
+#define JALAPENO_ANIM_H
+
+#define JALAPENO_WIDTH  17
+#define JALAPENO_HEIGHT 31
+#define JALAPENO_FRAMES 4
+
+extern unsigned char jalapeno_frames[JALAPENO_FRAMES][JALAPENO_WIDTH*JALAPENO_HEIGHT];
+
+#endif

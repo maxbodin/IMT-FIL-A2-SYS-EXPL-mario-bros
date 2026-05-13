@@ -3,6 +3,7 @@
 
 #include <Applications/PlantsVsZombies/Entity.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
+#include <Applications/PlantsVsZombies/PlantType.h>
 
 class Peashooter : public Entity {
 public:
@@ -16,19 +17,26 @@ public:
     void render();
 
     virtual bool canShoot() const;
-    void resetCooldown();
+    virtual void resetCooldown();
     virtual BulletType getBulletType() const;
     virtual bool hasSunReady() const;
     virtual void resetSunTimer();
+
+    virtual PlantType getPlantType() const;
 
     int getWidth() const override;
     int getHeight() const override;
 
 protected:
     static const int ANIM_SPEED = 10; // update calls entre chaque frame
+    static const int SHOOT_ANIM_HOLD = 18; // ticks to show shooting anim
     int cooldown;
     int frame;
     int animTick;
+    bool shooting;
+    int shootFrame;
+    int shootAnimTick;
+    int shootHoldTicks;
 };
 
 #endif
