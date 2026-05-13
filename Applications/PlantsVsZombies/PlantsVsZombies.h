@@ -69,6 +69,7 @@ private:
     int  sunCollectDisplayEnd { 0 };
     int  lastSunCollected     { 0 };
     int  lives                { 3 };
+    bool gameOver              { false };
 
     Sun* suns_on_ground[MAX_SUNS];
     int  sunOnGroundCount     { 0 };
@@ -96,6 +97,7 @@ private:
     void drawLivesHud();
     void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
     void showGameOver();
+    void resetGame();
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
     bool placePlant(int col, int row, PlantType type);
