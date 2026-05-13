@@ -16,6 +16,7 @@
 #include <Applications/PlantsVsZombies/PlantQueue.h>
 #include <Applications/PlantsVsZombies/WaveManager.h>
 #include <drivers/Clavier.h>
+#include <sextant/sync/Semaphore.h>
 
 #define MAX_PLANTS  45
 #define MAX_ZOMBIES 20
@@ -35,57 +36,66 @@ class PlantsVsZombies {
 public:
     PlantsVsZombies();
 
-    void init(Ecran* e,Clavier* c);
+    void init(Ecran* e, Clavier* c);
     void start();
 
     bool canAfford(int cost) const;
     void spendSuns(int cost);
-    void addSuns(int amount);
+
+    /* Points d'entrée des threads de jeu.
+       Chaque méthode est une boucle infinie exécutée par son thread dédié. */
+    void runLogic();   /* Thread logique : mise à jour de l'état du jeu   */
+    void runRender();  /* Thread rendu  : composition backbuffer + blit VGA */
 
 private:
     Grid        grid;
     Peashooter* plants[MAX_PLANTS];
     int         plantCount;
-    ObjectPool<Bullet, BULLET_POOL_SIZE>        bulletPool;
+    ObjectPool<Bullet, BULLET_POOL_SIZE>         bulletPool;
     ObjectPool<DmgIndicator, MAX_DMG_INDICATORS> dmgPool;
     Zombie*     zombies[MAX_ZOMBIES];
     int         zombieCount;
 
-    Ecran*      ecran;
-    Clavier*    clavier;
-    unsigned char*  backbuffer;
+    Ecran*         ecran;
+    Clavier*       clavier;
+    unsigned char* backbuffer;
 
-    int         suns              { SUN_INITIAL };
-    int         lastSunTick       { 0 };
-    int         sunGainDisplayEnd { 0 };
-    int         lastFps           { 0 };
-    int         lastSeconds       { 0 };
-    int         sunFlashEndTick   { 0 };
-    int         sunCollectDisplayEnd { 0 };
-    int         lastSunCollected  { 0 };
+    int  suns                 { SUN_INITIAL };
+    int  lastSunTick          { 0 };
+    int  sunGainDisplayEnd    { 0 };
+    int  lastFps              { 0 };
+    int  lastSeconds          { 0 };
+    int  sunFlashEndTick      { 0 };
+    int  sunCollectDisplayEnd { 0 };
+    int  lastSunCollected     { 0 };
+    int  lives                { 3 };
 
-    Sun*        suns_on_ground[MAX_SUNS];
-    int         sunOnGroundCount  { 0 };
+    Sun* suns_on_ground[MAX_SUNS];
+    int  sunOnGroundCount     { 0 };
 
-    void update_screen();
-    void drawSunHud();
-    void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
-
-    /* Wave manager — handles zombie spawning across waves. */
     WaveManager waveManager;
-
-    /* Files de plantes par joueur */
     PlantQueue  queue1;
     PlantQueue  queue2;
 
-    /* Joueur 1 : démarre en haut à gauche */
-    int         cursorCol   { 0 };
-    int         cursorRow   { 0 };
+    int cursorCol  { 0 };
+    int cursorRow  { 0 };
+    int cursorCol2 { Grid::COLS - 1 };
+    int cursorRow2 { Grid::ROWS - 1 };
 
-    /* Joueur 2 : démarre en bas à droite */
-    int         cursorCol2  { Grid::COLS - 1 };
-    int         cursorRow2  { Grid::ROWS - 1 };
+    /* [SYNC] Sémaphore de synchronisation logique → rendu.
+       Le thread logique fait V() après chaque mise à jour de l'état du jeu.
+       Le thread rendu fait tryP() (non bloquant) et cède le CPU (Yield()) s'il
+       n'y a pas encore de nouvelle frame à dessiner.
+       Valeur initiale 0 : le rendu attend obligatoirement le premier tick logique. */
+    Semaphore frameSem { 0 };
 
+    void addSuns(int amount);
+    void updateLogic();   /* Pure logique (pas de dessin) */
+    void renderFrame();   /* Pure présentation (backbuffer + blit) */
+    void drawSunHud();
+    void drawLivesHud();
+    void drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color);
+    void showGameOver();
     void handleInput();
     void drawCursor(int col, int row, unsigned char color);
     bool placePlant(int col, int row, PlantType type);
