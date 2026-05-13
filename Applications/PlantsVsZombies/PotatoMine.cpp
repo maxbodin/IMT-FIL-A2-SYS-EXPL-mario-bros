@@ -1,6 +1,6 @@
 #include <Applications/PlantsVsZombies/PotatoMine.h>
-#include <Applications/PlantsVsZombies/sprites/potato_mine_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/potato_mine_explosion_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/potato_mine_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/potato_mine_explosion_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;

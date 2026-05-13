@@ -1,8 +1,6 @@
 #include <Applications/PlantsVsZombies/WaveManager.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/start_ready_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/start_set_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/start_plant_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/ui/start_text_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
@@ -105,26 +103,11 @@ void WaveManager::renderStartText() {
     }
 
     const unsigned char* data;
-    int srcW, srcH;
-
-    switch (phase) {
-        case 2:
-            data = start_ready_sprite_data;
-            srcW = START_READY_WIDTH;
-            srcH = START_READY_HEIGHT;
-            break;
-        case 3:
-            data = start_set_sprite_data;
-            srcW = START_SET_WIDTH;
-            srcH = START_SET_HEIGHT;
-            break;
-        case 4:
-        default:
-            data = start_plant_sprite_data;
-            srcW = START_PLANT_WIDTH;
-            srcH = START_PLANT_HEIGHT;
-            break;
-    }
+    int srcW = START_TEXT_WIDTH;
+    int srcH = START_TEXT_HEIGHT;
+    int frameIdx = phase - 2; // phase 2=frame 0, 3=frame 1, 4=frame 2
+    if (frameIdx < 0 || frameIdx >= START_TEXT_FRAMES) return;
+    data = start_text_frames[frameIdx];
 
     /* Draw centered on screen (320x200). Scale to fit nicely. */
     int dstW = srcW;

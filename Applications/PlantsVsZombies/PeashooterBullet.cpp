@@ -1,5 +1,5 @@
 #include <Applications/PlantsVsZombies/PeashooterBullet.h>
-#include <Applications/PlantsVsZombies/sprites/peashooter_bullet_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/peabullet_sprite.h>
 #include <vga/vga.h>
 
 PeashooterBullet::PeashooterBullet(int x, int y) : Bullet(x, y) {}
@@ -11,15 +11,15 @@ void PeashooterBullet::update() {
 }
 
 void PeashooterBullet::render() {
-    draw_sprite(peashooter_bullet_sprite_data,
-                PEASHOOTER_BULLET_WIDTH, PEASHOOTER_BULLET_HEIGHT,
+    draw_sprite(peabullet_sprite_data,
+                PEABULLET_WIDTH, PEABULLET_HEIGHT,
                 x, y);
 }
 
 void PeashooterBullet::erase() {
-    plot_square(x, y, PEASHOOTER_BULLET_WIDTH, 0);
+    plot_square(x, y, PEABULLET_WIDTH, 0);
 }
 
-int PeashooterBullet::getWidth()  const { return PEASHOOTER_BULLET_WIDTH; }
-int PeashooterBullet::getHeight() const { return PEASHOOTER_BULLET_HEIGHT; }
+int PeashooterBullet::getWidth()  const { return PEABULLET_WIDTH; }
+int PeashooterBullet::getHeight() const { return PEABULLET_HEIGHT; }
 int PeashooterBullet::getDamage() const { return DAMAGE; }

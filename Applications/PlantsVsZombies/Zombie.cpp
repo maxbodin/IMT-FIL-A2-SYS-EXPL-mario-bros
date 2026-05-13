@@ -1,7 +1,8 @@
 #include <Applications/PlantsVsZombies/Zombie.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_fight_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_fire_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombies/zombie_fight_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/zombie_fire_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/snowpea_impact_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;
@@ -65,6 +66,14 @@ void Zombie::render() {
         draw_sprite(zombie_fire_frames[fireFrame],
                     ZOMBIE_FIRE_WIDTH, ZOMBIE_FIRE_HEIGHT,
                     x + (ZOMBIE_WALK_WIDTH - ZOMBIE_FIRE_WIDTH) / 2, y);
+    }
+
+    /* Snow/slow overlay */
+    if (slowTicks > 0) {
+        draw_sprite(snowpea_impact_frames[SNOWPEA_IMPACT_FRAMES - 1],
+                    SNOWPEA_IMPACT_WIDTH, SNOWPEA_IMPACT_HEIGHT,
+                    x + (ZOMBIE_WALK_WIDTH - SNOWPEA_IMPACT_WIDTH) / 2,
+                    y + ZOMBIE_WALK_HEIGHT - SNOWPEA_IMPACT_HEIGHT);
     }
 }
 

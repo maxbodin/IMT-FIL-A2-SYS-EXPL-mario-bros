@@ -1,0 +1,10 @@
+#ifndef CHOMPER_IDLE_ANIM_H
+#define CHOMPER_IDLE_ANIM_H
+
+#define CHOMPER_IDLE_WIDTH  45
+#define CHOMPER_IDLE_HEIGHT 44
+#define CHOMPER_IDLE_FRAMES 9
+
+extern unsigned char chomper_idle_frames[CHOMPER_IDLE_FRAMES][CHOMPER_IDLE_WIDTH*CHOMPER_IDLE_HEIGHT];
+
+#endif
