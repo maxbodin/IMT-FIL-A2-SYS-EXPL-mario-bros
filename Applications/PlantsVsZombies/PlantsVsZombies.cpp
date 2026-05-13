@@ -382,6 +382,7 @@ void PlantsVsZombies::updateLogic() {
             i--;
         }
     }
+}
 
     } // end if (!gamePaused)
 }
