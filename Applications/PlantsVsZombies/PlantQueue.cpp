@@ -6,6 +6,8 @@
 #include <Applications/PlantsVsZombies/Jalapeno.h>
 #include <Applications/PlantsVsZombies/PotatoMine.h>
 #include <Applications/PlantsVsZombies/WallNut.h>
+#include <Applications/PlantsVsZombies/Chomper.h>
+#include <Applications/PlantsVsZombies/GatlingPea.h>
 #include <sextant/interruptions/irq.h>
 
 extern volatile int compt;
@@ -38,7 +40,9 @@ PlantType PlantQueue::randomPlantType() {
         case 2: return PLANT_SUNFLOWER;
         case 3: return PLANT_JALAPENO;
         case 4: return PLANT_POTATO_MINE;
-        default: return PLANT_WALLNUT;
+        case 5: return PLANT_WALLNUT;
+        case 6: return PLANT_CHOMPER;
+        default: return PLANT_GATLING_PEA;
     }
 }
 
@@ -142,6 +146,8 @@ int PlantQueue::costOf(PlantType type) {
         case PLANT_JALAPENO:        return Jalapeno::COST;
         case PLANT_POTATO_MINE:     return PotatoMine::COST;
         case PLANT_WALLNUT:         return WallNut::COST;
+        case PLANT_CHOMPER:         return Chomper::COST;
+        case PLANT_GATLING_PEA:     return GatlingPea::COST;
         case PLANT_PEASHOOTER:
         default:                    return Peashooter::COST;
     }

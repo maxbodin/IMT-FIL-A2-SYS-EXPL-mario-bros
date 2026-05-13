@@ -1,7 +1,7 @@
 #include <Applications/PlantsVsZombies/WallNut.h>
-#include <Applications/PlantsVsZombies/sprites/wallnut_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/wallnut_damaged_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/wallnut_very_damaged_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/wallnut_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/wallnut_damaged_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/wallnut_very_damaged_sprite.h>
 #include <vga/vga.h>
 
 WallNut::WallNut(int x, int y) : Peashooter(x, y) {

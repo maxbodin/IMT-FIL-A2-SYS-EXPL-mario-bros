@@ -1,6 +1,6 @@
 #include <Applications/PlantsVsZombies/Jalapeno.h>
-#include <Applications/PlantsVsZombies/sprites/jalapeno_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/jalapeno_fire_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/jalapeno_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/jalapeno_fire_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;

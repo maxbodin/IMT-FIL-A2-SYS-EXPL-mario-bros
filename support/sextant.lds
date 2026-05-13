@@ -81,6 +81,12 @@ SECTIONS
         PROVIDE(erodata = .);
         PROVIDE(_erodata = .);
     }
+    /* Discard exception handling frames (not needed with -fno-exceptions) */
+    /DISCARD/ :
+    {   *(.eh_frame*)
+        *(.eh_frame_hdr)
+    }
+
     /* We take note of the end of the data to load */
     __e_load = .;
 

@@ -35,17 +35,17 @@ MV = mv -f
 
 KERNEL_OBJ   = sextant.elf
 
-OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_bullet_sprite snow_peashooter_sprite grass_tile_sprite sunflower_sprite sun_big_sprite sun_small_sprite pvz_background_sprite jalapeno_sprite jalapeno_fire_sprite potato_mine_sprite potato_mine_explosion_sprite wallnut_sprite wallnut_damaged_sprite wallnut_very_damaged_sprite zombie_fire_sprite start_ready_sprite start_set_sprite start_plant_sprite Entity Bullet DmgIndicator Peashooter SnowPeashooter Sunflower Jalapeno PotatoMine WallNut Sun Grid Tile PlantsVsZombies PlantQueue WaveManager Zombie zombie_walk_sprite zombie_fight_sprite Spinlock Semaphore KeyboardQueue
+OBJECTSNAMES= main multiboot fonctionsES irq_wrappers i8259 idt irq Ecran Clavier timer handler_tic handler_clavier memoire vga shared_palette peashooter_sprite peashooter_shooting_sprite snow_peashooter_sprite snow_peashooter_shooting_sprite sunflower_sprite jalapeno_sprite potato_mine_sprite wallnut_sprite wallnut_damaged_sprite wallnut_very_damaged_sprite chomper_idle_sprite chomper_attacking_sprite chomper_chewing_sprite gatlingpea_idle_sprite gatlingpea_shooting_sprite peabullet_sprite snowpeabullet_sprite peabullet_impact_sprite snowpea_impact_sprite jalapeno_fire_sprite potato_mine_explosion_sprite sun_big_sprite sun_small_sprite zombie_fire_sprite grass_tile_sprite background_sprite start_text_sprite zombie_walk_sprite zombie_fight_sprite Entity Bullet DmgIndicator Peashooter SnowPeashooter Sunflower Jalapeno PotatoMine WallNut Chomper GatlingPea Sun Grid Tile PlantsVsZombies PlantQueue WaveManager Zombie Spinlock Semaphore KeyboardQueue
 
 
 OBJECTS=$(patsubst %,build/all-o/%.o,$(OBJECTSNAMES))					  		
 
 #variable pour demander a make de chercher les dependances dans n'importe quel repertoire jusqu'à 3 rep de profondeur :
-VPATH=$(wildcard *):$(wildcard */*):$(wildcard */*/*)
+VPATH=$(wildcard *):$(wildcard */*):$(wildcard */*/*):$(wildcard */*/*/*)
 
 # Tous les headers du projet : tout .o doit être recompilé quand un .h change
 # (pas de tracking transitive des #include, donc on reconstruit tout par sécurité)
-HEADERS=$(wildcard */*.h) $(wildcard */*/*.h) $(wildcard */*/*/*.h)
+HEADERS=$(wildcard */*.h) $(wildcard */*/*.h) $(wildcard */*/*/*.h) $(wildcard */*/*/*/*.h)
 
 # les target all et clean ne sont pas "constructibles" mais appellent des recettes :
 .PHONY:all clean run show

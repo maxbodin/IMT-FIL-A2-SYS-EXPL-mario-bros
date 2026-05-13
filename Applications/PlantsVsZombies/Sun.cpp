@@ -1,6 +1,6 @@
 #include <Applications/PlantsVsZombies/Sun.h>
 #include <Applications/PlantsVsZombies/Grid.h>
-#include <Applications/PlantsVsZombies/sprites/sun_big_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/sun_big_sprite.h>
 #include <vga/vga.h>
 
 extern volatile int compt;

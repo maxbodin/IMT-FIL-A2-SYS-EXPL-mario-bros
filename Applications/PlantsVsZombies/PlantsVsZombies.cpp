@@ -4,16 +4,20 @@
 #include <Applications/PlantsVsZombies/Jalapeno.h>
 #include <Applications/PlantsVsZombies/PotatoMine.h>
 #include <Applications/PlantsVsZombies/WallNut.h>
+#include <Applications/PlantsVsZombies/Chomper.h>
+#include <Applications/PlantsVsZombies/GatlingPea.h>
 #include <Applications/PlantsVsZombies/sprites/shared_palette.h>
-#include <Applications/PlantsVsZombies/sprites/peashooter_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/snow_peashooter_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/sunflower_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/jalapeno_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/potato_mine_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/wallnut_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/sun_small_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/pvz_background_sprite.h>
-#include <Applications/PlantsVsZombies/sprites/zombie_walk_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/snow_peashooter_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/sunflower_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/jalapeno_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/potato_mine_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/wallnut_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/chomper_idle_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/plants/gatlingpea_idle_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/objects/sun_small_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/ui/background_sprite.h>
+#include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
 #include <vga/vga.h>
@@ -166,7 +170,7 @@ void PlantsVsZombies::update_screen() {
         // Shooters: spawn bullets via pool
         if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
-            int by = plants[i]->getY() + plants[i]->getHeight() / 4;
+            int by = plants[i]->getY() - plants[i]->getHeight() / 4;
             Bullet* b = bulletPool.acquire();
             if (b) {
                 b->init(bx, by, plants[i]->getBulletType());
@@ -243,6 +247,21 @@ void PlantsVsZombies::update_screen() {
                     blocked = false;
                 }
 
+                /* Chomper: eat zombie on contact if idle */
+                if (pt == PLANT_CHOMPER) {
+                    Chomper* ch = (Chomper*)plants[p];
+                    if (ch->getChomperState() == CHOMP_IDLE) {
+                        ch->startAttack();
+                        zombies[i]->takeDamage(9999); // instant kill
+                        DmgIndicator* di = dmgPool.acquire();
+                        if (di) di->init(zombies[i]->getX(),
+                                         zombies[i]->getY() - 4,
+                                         9999, DMG_INDICATOR_DURATION);
+                    }
+                    /* Chomper doesn't block while chewing — vulnerable */
+                    if (ch->isChewing()) blocked = false;
+                }
+
                 /* Normal plants (peashooter, sunflower, wallnut): zombie blocks and attacks */
                 if (blocked && zombies[i]->canHit()) {
                     plants[p]->takeDamage(ZOMBIE_DAMAGE);
@@ -267,7 +286,12 @@ void PlantsVsZombies::update_screen() {
         if (!b->isActive()) continue;
 
         b->update();
-        if (!b->isActive()) continue; // went off-screen
+        if (!b->isActive()) {
+            bulletPool.release(b);
+            continue;
+        }
+
+        if (b->isImpacting()) continue;
 
         if (b->getX() > b->getSpawnX() + COLLISION_DISTANCE) {
             for (int z = 0; z < zombieCount; z++) {
@@ -277,7 +301,7 @@ void PlantsVsZombies::update_screen() {
                          zombies[z]->getWidth(), zombies[z]->getHeight())) {
                     int dmg = b->getDamage();
                     b->onHit(*zombies[z]);
-                    bulletPool.release(b);
+                    b->startImpact();
                     /* Damage indicator via pool */
                     DmgIndicator* di = dmgPool.acquire();
                     if (di) di->init(zombies[z]->getX(),
@@ -326,7 +350,7 @@ void PlantsVsZombies::update_screen() {
 
     // Background image
     for (int i = 0; i < 320 * 200; i++)
-        backbuffer[i] = pvz_background_sprite_data[i];
+        backbuffer[i] = background_sprite_data[i];
 
     grid.render();
 
@@ -515,6 +539,12 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
         case PLANT_WALLNUT:
             p = new WallNut(px, py);
             break;
+        case PLANT_CHOMPER:
+            p = new Chomper(px, py);
+            break;
+        case PLANT_GATLING_PEA:
+            p = new GatlingPea(px, py);
+            break;
         case PLANT_PEASHOOTER:
         default:                    
             p = new Peashooter(px, py);     
@@ -573,6 +603,14 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
             w = WALLNUT_WIDTH;
             h = WALLNUT_HEIGHT;
             return wallnut_frames[0];
+        case PLANT_CHOMPER:
+            w = CHOMPER_IDLE_WIDTH;
+            h = CHOMPER_IDLE_HEIGHT;
+            return chomper_idle_frames[0];
+        case PLANT_GATLING_PEA:
+            w = GATLINGPEA_IDLE_WIDTH;
+            h = GATLINGPEA_IDLE_HEIGHT;
+            return gatlingpea_idle_frames[0];
         case PLANT_PEASHOOTER:
         default:
             w = PEASHOOTER_WIDTH; 

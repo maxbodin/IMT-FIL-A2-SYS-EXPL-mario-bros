@@ -1,0 +1,10 @@
+#ifndef START_TEXT_ANIM_H
+#define START_TEXT_ANIM_H
+
+#define START_TEXT_WIDTH  285
+#define START_TEXT_HEIGHT 104
+#define START_TEXT_FRAMES 3
+
+extern unsigned char start_text_frames[START_TEXT_FRAMES][START_TEXT_WIDTH*START_TEXT_HEIGHT];
+
+#endif
