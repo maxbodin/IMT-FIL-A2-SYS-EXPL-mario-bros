@@ -20,7 +20,47 @@
 #include <Applications/PlantsVsZombies/sprites/zombies/zombie_walk_sprite.h>
 #include <sextant/interruptions/handler/handler_clavier.h>
 #include <sextant/memoire/memoire.h>
+#include <sextant/threads/Threads.h>
+#include <sextant/ordonnancements/preemptif/thread.h>
 #include <vga/vga.h>
+
+/* =========================================================================
+ * Threads de jeu — Round-Robin coopératif
+ *
+ * CHOIX DE L'ALGORITHME : Round-Robin coopératif (Yield() explicite)
+ *
+ * L'alternative préemptive (sched_clk hooked sur le timer IRQ) est écartée
+ * parce que irq_wrappers.S sauvegarde le contexte puis exécute le handler C
+ * puis fait "iret". Si le handler appelle cpu_context_switch(), l'"iret"
+ * suivant restaure le mauvais pile ← corruption silencieuse.
+ *
+ * Avec le mode coopératif :
+ *   - Un seul thread tourne à la fois (mono-core).
+ *   - Pas de race condition réelle entre threads : la mémoire partagée
+ *     (positions des entités, suns, lives…) ne peut pas être modifiée
+ *     pendant qu'un autre thread la lit — il faut qu'un thread cède
+ *     explicitement le CPU pour que l'autre puisse démarrer.
+ *   - Le sémaphore frameSem (initial=0) assure que le thread rendu ne tente
+ *     de dessiner qu'une fois que le thread logique a terminé une mise à jour.
+ *
+ * Flux d'exécution (une itération) :
+ *   LogicThread : handleInput() + updateLogic() → frameSem.V() → Yield()
+ *   RenderThread: tryP(frameSem) → renderFrame() → Yield()
+ *   (initial thread) : Yield() en boucle — thread idle
+ * ========================================================================= */
+
+/* PvZLogicThread : met à jour l'état du jeu toutes les 16 ms (≈ 62 fps),
+   puis signale le thread rendu via frameSem. */
+struct PvZLogicThread : public Threads {
+    PlantsVsZombies* game;
+    void run() override { game->runLogic(); }
+};
+
+/* PvZRenderThread : attend le signal du thread logique, dessine la frame. */
+struct PvZRenderThread : public Threads {
+    PlantsVsZombies* game;
+    void run() override { game->runRender(); }
+};
 
 extern volatile int compt;
 
@@ -39,11 +79,11 @@ static const unsigned char SUN_HUD_RED    =  32;
 
 // Dessine un "+" 3×3 pixels (à l'échelle scale)
 static void draw_plus(int x, int y, unsigned char color, int scale) {
-    plot_square(x + scale, y,          scale, color); // haut
-    plot_square(x,         y + scale,  scale, color); // gauche
-    plot_square(x + scale, y + scale,  scale, color); // centre
-    plot_square(x + scale*2, y + scale,scale, color); // droite
-    plot_square(x + scale, y + scale*2,scale, color); // bas
+    plot_square(x + scale, y,           scale, color); // haut
+    plot_square(x,         y + scale,   scale, color); // gauche
+    plot_square(x + scale, y + scale,   scale, color); // centre
+    plot_square(x + scale*2, y + scale, scale, color); // droite
+    plot_square(x + scale, y + scale*2, scale, color); // bas
 }
 
 void PlantsVsZombies::drawSunHud() {
@@ -53,18 +93,16 @@ void PlantsVsZombies::drawSunHud() {
         for (int col = 0; col < pw; col++)
             video[(py + row) * 320 + (px + col)] = SUN_HUD_BG;
 
-    // Nombre de soleils (rouge si pas assez)
     bool sunFlash = compt < sunFlashEndTick;
-    unsigned char sunColor = sunFlash ? SUN_HUD_RED : SUN_HUD_TEXT;
+    unsigned char sunColor    = sunFlash ? SUN_HUD_RED : SUN_HUD_TEXT;
     unsigned char borderColor = sunFlash ? SUN_HUD_RED : (unsigned char)3;
 
-    // Bordures pour délimiter le panneau
     for (int col = 0; col < pw; col++) {
         video[py * 320 + (px + col)]            = borderColor;
         video[(py + ph - 1) * 320 + (px + col)] = borderColor;
     }
 
-    // Icône soleil animée dans le compteur de sun (sun_small, 2 frames)
+    // Icône soleil animée (sun_small, 2 frames)
     {
         static int sunHudFrame = 0;
         static int sunHudAnimTick = 0;
@@ -77,10 +115,9 @@ void PlantsVsZombies::drawSunHud() {
                            px + 2, py + 2, 16, 16);
     }
 
-    // Nombre de soleils
     draw_number(suns, px + 22, py + 6, sunColor, 2);
 
-    // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain
+    // Affichage "+Y" pendant SUN_DISPLAY_DURATION ticks après un gain automatique
     if (compt < sunGainDisplayEnd) {
         draw_plus(px + 52, py + 6, SUN_HUD_GREEN, 2);
         draw_number(SUN_TICK_AMOUNT, px + 60, py + 6, SUN_HUD_GREEN, 2);
@@ -107,12 +144,10 @@ PlantsVsZombies::PlantsVsZombies() : plantCount(0), zombieCount(0) {
         suns_on_ground[i] = 0;
 }
 
-void PlantsVsZombies::init(Ecran* e,Clavier* c) {
-    ecran = e;
+void PlantsVsZombies::init(Ecran* e, Clavier* c) {
+    ecran   = e;
     clavier = c;
-
     backbuffer = (unsigned char*) getmem(320 * 200);
-
     set_vga_mode13();
     set_palette_vga(shared_palette);
     clear_vga_screen(0);
@@ -124,7 +159,9 @@ static bool aabb(int ax, int ay, int aw, int ah,
         && ay < by + bh && ay + ah > by;
 }
 
-void PlantsVsZombies::update_screen() {
+/* [LOGIQUE] Met à jour l'état du jeu : vagues, plantes, zombies, balles, soleils.
+   Appelé par runLogic() toutes les 16 ms. Ne touche pas au framebuffer. */
+void PlantsVsZombies::updateLogic() {
 
     // --- Wave spawning (always runs to track wave state) ---
     waveManager.setZombieCount(zombieCount);
@@ -161,13 +198,11 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
 
-        // Sunflower: produce suns on the ground
         if (plants[i]->hasSunReady() && sunOnGroundCount < MAX_SUNS) {
             suns_on_ground[sunOnGroundCount++] = new Sun(plants[i]->getX(), plants[i]->getY() + plants[i]->getHeight() / 2);
             plants[i]->resetSunTimer();
         }
 
-        // Shooters: spawn bullets via pool
         if (plants[i]->canShoot()) {
             int bx = plants[i]->getX();
             int by = plants[i]->getY() - plants[i]->getHeight() / 4;
@@ -272,6 +307,15 @@ void PlantsVsZombies::update_screen() {
         }
         blocked ? zombies[i]->block() : zombies[i]->unblock();
         zombies[i]->update();
+
+        if (zombies[i]->getX() <= 0) {
+            lives--;
+            delete zombies[i];
+            zombies[i] = zombies[--zombieCount];
+            zombies[zombieCount] = 0;
+            i--;
+            continue;
+        }
         if (zombies[i]->isDead()) {
             delete zombies[i];
             zombies[i] = zombies[--zombieCount];
@@ -324,27 +368,28 @@ void PlantsVsZombies::update_screen() {
             continue;
         }
 
-        // Check if any cursor is on the same tile.
         int sc = suns_on_ground[i]->getTileCol();
         int sr = suns_on_ground[i]->getTileRow();
         if ((cursorCol == sc && cursorRow == sr) ||
             (cursorCol2 == sc && cursorRow2 == sr)) {
             int val = suns_on_ground[i]->getValue();
             addSuns(val);
-
-            lastSunCollected = val;
+            lastSunCollected     = val;
             sunCollectDisplayEnd = compt + SUN_COLLECT_DISPLAY;
-
             delete suns_on_ground[i];
             suns_on_ground[i] = suns_on_ground[--sunOnGroundCount];
             suns_on_ground[sunOnGroundCount] = 0;
             i--;
         }
     }
+}
 
     } // end if (!gamePaused)
 
-    // Rendering
+/* [RENDU] Compose le backbuffer et le copie dans le framebuffer VGA.
+   Appelé par runRender() après que runLogic() a signalé une nouvelle frame
+   via frameSem. Aucune modification de l'état du jeu ici. */
+void PlantsVsZombies::renderFrame() {
     unsigned char* real_video = (unsigned char*) video;
     video = backbuffer;
 
@@ -367,7 +412,7 @@ void PlantsVsZombies::update_screen() {
 
     for (int i = 0; i < sunOnGroundCount; i++)
         if (suns_on_ground[i]) suns_on_ground[i]->render();
-        
+
     unsigned char c1 = grid.isTileOccupied(cursorCol, cursorRow)   ? SUN_HUD_RED : CURSOR_P1_COLOR;
     unsigned char c2 = grid.isTileOccupied(cursorCol2, cursorRow2) ? SUN_HUD_RED : CURSOR_P2_COLOR;
     drawCursor(cursorCol,  cursorRow,  c1);
@@ -390,7 +435,7 @@ void PlantsVsZombies::update_screen() {
         draw_number(lastFps, startX, 2, 15, 1);
         draw_text("fps", startX + len * 4, 2, 15, 1);
     }
-    
+
     // Wave indicator
     {
         draw_text("w", 1, 9, 15, 1);
@@ -398,8 +443,8 @@ void PlantsVsZombies::update_screen() {
     }
 
     drawSunHud();
+    drawLivesHud();
 
-    /* Damage indicators (object pool) */
     for (int i = 0; i < dmgPool.CAPACITY; i++) {
         DmgIndicator* di = dmgPool.get(i);
         if (!di->isActive()) continue;
@@ -407,10 +452,9 @@ void PlantsVsZombies::update_screen() {
         if (di->isActive()) di->render();
     }
 
-    /* Mise à jour et affichage des files de plantes */
     queue1.update();
     queue2.update();
-    drawQueueHud(queue1, 2,  186, CURSOR_P1_COLOR);
+    drawQueueHud(queue1, 2,   186, CURSOR_P1_COLOR);
     drawQueueHud(queue2, 200, 186, CURSOR_P2_COLOR);
 
     /* Wave start text (Ready / Set / Plant!) */
@@ -418,10 +462,67 @@ void PlantsVsZombies::update_screen() {
 
     unsigned char* src = backbuffer;
     unsigned char* dst = real_video;
-    for (int i = 0; i < 320 * 200; i++)
-        dst[i] = src[i];
+    for (int i = 0; i < 320 * 200; i++) dst[i] = src[i];
     video = real_video;
 }
+
+// ---------------------------------------------------------------------------
+// Lives HUD
+// ---------------------------------------------------------------------------
+
+void PlantsVsZombies::drawLivesHud() {
+    // Pixel-art heart, 5×4 cells, scale 2 → 10×8 px per heart
+    static const bool heart[4][5] = {
+        { 0, 1, 0, 1, 0 },
+        { 1, 1, 1, 1, 1 },
+        { 0, 1, 1, 1, 0 },
+        { 0, 0, 1, 0, 0 },
+    };
+    const int scale  = 2;
+    const int heartW = 5 * scale;
+    const int gap    = 3;
+    const int totalW = 3 * heartW + 2 * gap;
+    const int startX = 320 - totalW - 1;
+    const int startY = 16;
+
+    for (int i = 0; i < 3; i++) {
+        unsigned char color = (i < lives) ? (unsigned char)32 : (unsigned char)1;
+        int ox = startX + i * (heartW + gap);
+        for (int row = 0; row < 4; row++)
+            for (int col = 0; col < 5; col++)
+                if (heart[row][col])
+                    plot_square(ox + col * scale, startY + row * scale, scale, color);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Game Over
+// ---------------------------------------------------------------------------
+
+void PlantsVsZombies::showGameOver() {
+    for (int i = 0; i < 320 * 200; i++)
+        video[i] = 0;
+
+    // "GAME OVER" : 9 chars × (3+1) × scale3 = 108 px → centré à x=106
+    draw_text("GAME OVER", 106, 85, 32, 3);
+
+    // Temps de survie (secondes)
+    int len = 0, tmp = lastSeconds;
+    if (tmp == 0) len = 1; else { while (tmp > 0) { len++; tmp /= 10; } }
+    int sx = (320 - (len + 1) * 8) / 2;   // chaque char = 4*scale2 = 8px
+    draw_number(lastSeconds, sx, 112, 15, 2);
+    draw_text("s", sx + len * 8, 112, 15, 2);
+
+    // Vague atteinte
+    draw_text("wave", 134, 126, 15, 2);
+    draw_number(waveManager.getWave(), 134 + 4 * 8, 126, 15, 2);
+
+    while (true) {}
+}
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
 
 /* [EXPLICATION] Architecture producteur / consommateur.
    Le handler IRQ1 (producteur) push() les événements dans keyboardQueue.
@@ -442,14 +543,9 @@ void PlantsVsZombies::handleInput() {
     if (waveManager.getStartTextPhase() != 0) return;
 
     KeyEvent evt;
-
-    /* [EXPLICATION] On draine TOUS les événements accumulés depuis le dernier frame.
-       Si plusieurs touches ont été pressées pendant les ~16 ms inter-frames, elles
-       sont toutes traitées ici, dans l'ordre d'arrivée.                           */
     while (keyboardQueue.pop(evt)) {
-        if (!evt.pressed) continue; /* on ignore les break (relâchement) */
+        if (!evt.pressed) continue;
 
-        /* --- Joueur 1 : ZQSD + Espace --- */
         if      (evt.scanCode == SC_P1_UP)    cursorRow--;
         else if (evt.scanCode == SC_P1_DOWN)  cursorRow++;
         else if (evt.scanCode == SC_P1_LEFT)  cursorCol--;
@@ -473,7 +569,6 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P1_ROSTER_LEFT)  queue1.moveRosterLeft();
         else if (evt.scanCode == SC_P1_ROSTER_RIGHT) queue1.moveRosterRight();
 
-        /* --- Joueur 2 : IJKL + O --- */
         else if (evt.scanCode == SC_P2_UP)    cursorRow2--;
         else if (evt.scanCode == SC_P2_DOWN)  cursorRow2++;
         else if (evt.scanCode == SC_P2_LEFT)  cursorCol2--;
@@ -498,17 +593,19 @@ void PlantsVsZombies::handleInput() {
         else if (evt.scanCode == SC_P2_ROSTER_RIGHT) queue2.moveRosterRight();
     }
 
-    /* Borne les curseurs dans les limites de la grille. */
-    if (cursorCol < 0)            cursorCol = 0;
-    if (cursorCol >= Grid::COLS)  cursorCol = Grid::COLS - 1;
-    if (cursorRow < 0)            cursorRow = 0;
-    if (cursorRow >= Grid::ROWS)  cursorRow = Grid::ROWS - 1;
-
-    if (cursorCol2 < 0)           cursorCol2 = 0;
-    if (cursorCol2 >= Grid::COLS) cursorCol2 = Grid::COLS - 1;
-    if (cursorRow2 < 0)           cursorRow2 = 0;
-    if (cursorRow2 >= Grid::ROWS) cursorRow2 = Grid::ROWS - 1;
+    if (cursorCol  < 0)            cursorCol  = 0;
+    if (cursorCol  >= Grid::COLS)  cursorCol  = Grid::COLS - 1;
+    if (cursorRow  < 0)            cursorRow  = 0;
+    if (cursorRow  >= Grid::ROWS)  cursorRow  = Grid::ROWS - 1;
+    if (cursorCol2 < 0)            cursorCol2 = 0;
+    if (cursorCol2 >= Grid::COLS)  cursorCol2 = Grid::COLS - 1;
+    if (cursorRow2 < 0)            cursorRow2 = 0;
+    if (cursorRow2 >= Grid::ROWS)  cursorRow2 = Grid::ROWS - 1;
 }
+
+// ---------------------------------------------------------------------------
+// Placement
+// ---------------------------------------------------------------------------
 
 bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     if (plantCount >= MAX_PLANTS) return false;
@@ -525,7 +622,7 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
 
     switch (type) {
         case PLANT_SNOW_PEASHOOTER:
-            p = new SnowPeashooter(px, py); 
+            p = new SnowPeashooter(px, py);
             break;
         case PLANT_SUNFLOWER:
             p = new Sunflower(px, py);
@@ -546,11 +643,11 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
             p = new GatlingPea(px, py);
             break;
         case PLANT_PEASHOOTER:
-        default:                    
-            p = new Peashooter(px, py);     
+        default:
+            p = new Peashooter(px, py);
             break;
     }
-    
+
     if (p) {
         spendSuns(cost);
         plants[plantCount++] = p;
@@ -561,19 +658,18 @@ bool PlantsVsZombies::placePlant(int col, int row, PlantType type) {
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Cursor
+// ---------------------------------------------------------------------------
+
 void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
     int px, py;
     grid.tileToPixel(col, row, px, py);
-
-    int w = Grid::TILE_SIZE;
-    int h = Grid::TILE_SIZE;
-
-    /* Bordure supérieure et inférieure. */
+    int w = Grid::TILE_SIZE, h = Grid::TILE_SIZE;
     for (int x = px; x < px + w; x++) {
         video[py * 320 + x]           = color;
         video[(py + h - 1) * 320 + x] = color;
     }
-    /* Bordure gauche et droite. */
     for (int y = py; y < py + h; y++) {
         video[y * 320 + px]           = color;
         video[y * 320 + (px + w - 1)] = color;
@@ -584,7 +680,7 @@ void PlantsVsZombies::drawCursor(int col, int row, unsigned char color) {
 static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
     switch (type) {
         case PLANT_SNOW_PEASHOOTER:
-            w = SNOW_PEASHOOTER_WIDTH; 
+            w = SNOW_PEASHOOTER_WIDTH;
             h = SNOW_PEASHOOTER_HEIGHT;
             return snow_peashooter_frames[0];
         case PLANT_SUNFLOWER:
@@ -613,14 +709,14 @@ static const unsigned char* spriteForPlant(PlantType type, int& w, int& h) {
             return gatlingpea_idle_frames[0];
         case PLANT_PEASHOOTER:
         default:
-            w = PEASHOOTER_WIDTH; 
+            w = PEASHOOTER_WIDTH;
             h = PEASHOOTER_HEIGHT;
             return peashooter_frames[0];
     }
 }
 
 /* Affiche la file de plantes d'un joueur.
-   px, py : coin supérieur gauche du HUD. 
+   px, py : coin supérieur gauche du HUD.
    color : couleur du curseur roster. */
 void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned char color) {
     const int ICON_H  = 12;
@@ -659,48 +755,115 @@ void PlantsVsZombies::drawQueueHud(const PlantQueue& q, int px, int py, unsigned
             if (i == q.getRosterCursor()) {
                 unsigned char borderCol = flash ? SUN_HUD_RED : color;
                 for (int c = sx; c < sx + SLOT_W; c++) {
-                    video[py * 320 + c]                  = borderCol;
-                    video[(py + SLOT_H - 1) * 320 + c]   = borderCol;
+                    video[py * 320 + c]                = borderCol;
+                    video[(py + SLOT_H - 1) * 320 + c] = borderCol;
                 }
                 for (int r = py; r < py + SLOT_H; r++) {
-                    video[r * 320 + sx]                  = borderCol;
-                    video[r * 320 + (sx + SLOT_W - 1)]   = borderCol;
+                    video[r * 320 + sx]                = borderCol;
+                    video[r * 320 + (sx + SLOT_W - 1)] = borderCol;
                 }
             }
         }
     }
 }
 
-void PlantsVsZombies::start() {
-    /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
-    queue1.seed(2);
-    queue2.seed(2);
+// ---------------------------------------------------------------------------
+// Boucles des threads
+// ---------------------------------------------------------------------------
 
-    lastSunTick = compt; // premier gain après SUN_TICK_INTERVAL depuis le lancement
+/* [THREAD LOGIQUE] Tourne en Round-Robin coopératif.
+   Toutes les 16 ms : lit les entrées clavier, met à jour l'état du jeu,
+   puis signale le thread rendu via frameSem. Cède le CPU (Yield) après
+   chaque itération pour laisser le thread rendu s'exécuter.
 
-    int lastTick  = compt;
+   Le compteur de ticks (compt) est incrémenté par l'IRQ timer (1000 Hz).
+   On attend le prochain tick en cédant le CPU plutôt qu'en spinant
+   (while + Yield), ce qui évite d'affamer le thread rendu pendant l'attente. */
+void PlantsVsZombies::runLogic() {
+    int lastTick     = compt;
+    int fpsTimer     = compt;
     int renderFrames = 0;
-    int fpsTimer  = compt;
 
     while (true) {
-        while (compt == lastTick);
+        /* Attente coopérative du prochain tick — Yield() plutôt que spin pur
+           afin de laisser le thread rendu dessiner la frame précédente. */
+        while (compt == lastTick) thread_yield();
         lastTick = compt;
 
         if ((compt % 16) == 0) {
-            /* [EXPLICATION] handleInput() draine la file d'événements clavier accumulés
-               depuis le dernier frame (~16 ms).  Grâce à l'architecture producteur/
-               consommateur, chaque appui physique génère exactement un événement make :
-               pas de répétition typematique, pas de front montant à détecter.         */
+            /* L'input est traité avant la logique pour que les actions du joueur
+               (déplacement curseur, placement de plante) soient prises en compte
+               dans la frame courante. */
             handleInput();
-            update_screen();
+            updateLogic();
+
+            /* Signal au thread rendu : une nouvelle frame est prête. */
+            frameSem.V();
             renderFrames++;
         }
 
+        /* Mise à jour du compteur FPS une fois par seconde. */
         if (compt - fpsTimer >= 1000) {
             lastFps      = renderFrames;
             lastSeconds  = compt / 1000;
             renderFrames = 0;
             fpsTimer     = compt;
         }
+
+        /* Fin de partie : showGameOver() ne retourne jamais (boucle infinie). */
+        if (lives <= 0) showGameOver();
+
+        /* Cède le CPU au thread rendu (et éventuellement au thread idle). */
+        thread_yield();
     }
+}
+
+/* [THREAD RENDU] Tourne en Round-Robin coopératif.
+   Attend le signal de runLogic() via frameSem (tryP non bloquant + Yield),
+   puis compose le backbuffer et le copie dans le framebuffer VGA. */
+void PlantsVsZombies::runRender() {
+    while (true) {
+        /* tryP() non bloquant : si aucune frame logique n'est prête, on cède
+           le CPU immédiatement plutôt que de spinner (important en coopératif :
+           le spinning empêcherait runLogic de s'exécuter). */
+        while (!frameSem.tryP()) thread_yield();
+
+        renderFrame();
+
+        /* Cède le CPU après chaque frame rendue. */
+        thread_yield();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Démarrage — crée les threads et devient thread idle
+// ---------------------------------------------------------------------------
+
+void PlantsVsZombies::start() {
+    /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
+    queue1.seed(2);
+    queue2.seed(2);
+
+    /* [THREADS] Création des threads de jeu.
+       Les structures sont statiques : elles persistent au-delà du retour de
+       start() (qui ne se produit jamais en pratique), et leur durée de vie
+       est celle du programme.
+
+       Ordre de création : logicThread en premier, renderThread en second.
+       L'ordonnanceur Round-Robin va tourner : init → logicThread → renderThread
+       → init (idle) → logicThread → … */
+    static PvZLogicThread  logicThread;
+    static PvZRenderThread renderThread;
+
+    logicThread.game  = this;
+    renderThread.game = this;
+
+    logicThread.start();
+    renderThread.start();
+
+    /* Le thread initial (celui qui a exécuté main()) devient un thread idle :
+       il cède le CPU indéfiniment. Les threads de jeu ne terminent jamais
+       (showGameOver() boucle à l'infini), donc ce thread idle ne reprend
+       jamais la main en pratique. */
+    while (true) thread_yield();
 }

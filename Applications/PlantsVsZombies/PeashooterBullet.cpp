@@ -6,7 +6,7 @@ PeashooterBullet::PeashooterBullet(int x, int y) : Bullet(x, y) {}
 
 void PeashooterBullet::update() {
     x += SPEED;
-    if (x >= 320)
+    if (x + PEASHOOTER_BULLET_WIDTH >= 320)
         deactivate();
 }
 
