@@ -22,3 +22,5 @@ void SnowPeashooter::render() {
 BulletType SnowPeashooter::getBulletType() const {
     return BULLET_SNOW_PEA;
 }
+
+PlantType SnowPeashooter::getPlantType() const { return PLANT_SNOW_PEASHOOTER; }

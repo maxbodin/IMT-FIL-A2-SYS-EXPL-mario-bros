@@ -5,6 +5,9 @@
 #include <Applications/PlantsVsZombies/Peashooter.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Sunflower.h>
+#include <Applications/PlantsVsZombies/Jalapeno.h>
+#include <Applications/PlantsVsZombies/PotatoMine.h>
+#include <Applications/PlantsVsZombies/WallNut.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
 #include <Applications/PlantsVsZombies/Zombie.h>
 #include <Applications/PlantsVsZombies/DmgIndicator.h>

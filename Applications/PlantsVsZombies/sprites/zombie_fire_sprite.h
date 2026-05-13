@@ -1,0 +1,10 @@
+#ifndef ZOMBIE_FIRE_ANIM_H
+#define ZOMBIE_FIRE_ANIM_H
+
+#define ZOMBIE_FIRE_WIDTH  11
+#define ZOMBIE_FIRE_HEIGHT 36
+#define ZOMBIE_FIRE_FRAMES 2
+
+extern unsigned char zombie_fire_frames[ZOMBIE_FIRE_FRAMES][ZOMBIE_FIRE_WIDTH*ZOMBIE_FIRE_HEIGHT];
+
+#endif

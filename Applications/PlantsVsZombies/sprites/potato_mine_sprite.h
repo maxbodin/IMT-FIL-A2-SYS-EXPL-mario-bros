@@ -1,0 +1,10 @@
+#ifndef POTATO_MINE_ANIM_H
+#define POTATO_MINE_ANIM_H
+
+#define POTATO_MINE_WIDTH  29
+#define POTATO_MINE_HEIGHT 26
+#define POTATO_MINE_FRAMES 5
+
+extern unsigned char potato_mine_frames[POTATO_MINE_FRAMES][POTATO_MINE_WIDTH*POTATO_MINE_HEIGHT];
+
+#endif

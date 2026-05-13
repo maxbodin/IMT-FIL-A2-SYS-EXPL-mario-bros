@@ -118,6 +118,22 @@ def png_to_c(path, external_palette=None,
     w, h = im.size
     data = list(im.getdata())
 
+    # Alpha-aware transparency: index 0 is reserved for transparent pixels.
+    # Remap non-transparent pixels that quantized to index 0 → index 1.
+    orig = Image.open(path)
+    if orig.mode in ('RGBA', 'LA', 'PA'):
+        alpha = list(orig.convert('RGBA').split()[3].getdata())
+        for i in range(len(data)):
+            if alpha[i] < 128:
+                data[i] = 0    # transparent
+            elif data[i] == 0:
+                data[i] = 1    # remap black to near-black
+    else:
+        # No alpha channel — remap all index 0 to index 1
+        for i in range(len(data)):
+            if data[i] == 0:
+                data[i] = 1
+
     # Génération du code C
     print(f"// Généré par png_to_c_with_palette.py à partir de '{path}'", file=sys.stdout)
     print(f"#define {width_name}  {w}", file=sys.stdout)
@@ -205,9 +221,28 @@ def dir_to_c(dirpath, external_palette=None, out_dir=None):
     frames = []
     width = height = None
 
+    # First pass: determine max dimensions
+    max_w = max_h = 0
     for png in pngs:
         path = os.path.join(dirpath, png)
         im = Image.open(path)
+        w, h = im.size
+        if w > max_w: max_w = w
+        if h > max_h: max_h = h
+
+    for png in pngs:
+        path = os.path.join(dirpath, png)
+        im = Image.open(path)
+
+        # Pad to max dimensions (center horizontally, align bottom)
+        w, h = im.size
+        if w != max_w or h != max_h:
+            padded = Image.new(im.mode, (max_w, max_h), (0, 0, 0, 0) if im.mode == 'RGBA' else (0, 0, 0))
+            offset_x = (max_w - w) // 2
+            offset_y = max_h - h
+            padded.paste(im, (offset_x, offset_y))
+            im = padded
+
         if pal:
             im_q = im.convert('RGB').quantize(palette=pal_img)
         else:
@@ -221,7 +256,22 @@ def dir_to_c(dirpath, external_palette=None, out_dir=None):
         elif (w, h) != (width, height):
             print(f"[!] {png}: taille {w}x{h} != {width}x{height}", file=sys.stderr)
             sys.exit(1)
-        frames.append(list(im_q.getdata()))
+        frame_data = list(im_q.getdata())
+
+        # Alpha-aware transparency: index 0 = transparent, remap opaque index 0 → 1
+        if im.mode in ('RGBA', 'LA', 'PA'):
+            alpha = list(im.convert('RGBA').split()[3].getdata())
+            for i in range(len(frame_data)):
+                if alpha[i] < 128:
+                    frame_data[i] = 0
+                elif frame_data[i] == 0:
+                    frame_data[i] = 1
+        else:
+            for i in range(len(frame_data)):
+                if frame_data[i] == 0:
+                    frame_data[i] = 1
+
+        frames.append(frame_data)
         print(f"[i] Frame {len(frames)-1}: {png} ({w}x{h})", file=sys.stderr)
 
     nb = len(frames)

@@ -46,5 +46,7 @@ BulletType Peashooter::getBulletType() const {
     return BULLET_PEASHOOTER;
 }
 
+PlantType Peashooter::getPlantType() const { return PLANT_PEASHOOTER; }
+
 bool Peashooter::hasSunReady() const { return false; }
 void Peashooter::resetSunTimer() {}
