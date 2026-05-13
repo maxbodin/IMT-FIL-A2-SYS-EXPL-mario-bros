@@ -2,6 +2,7 @@
 #define PLANTSVSZOMBIES_H
 
 #include <Applications/PlantsVsZombies/Grid.h>
+#include <Applications/PlantsVsZombies/MainMenu.h>
 #include <Applications/PlantsVsZombies/Peashooter.h>
 #include <Applications/PlantsVsZombies/SnowPeashooter.h>
 #include <Applications/PlantsVsZombies/Sunflower.h>
@@ -48,6 +49,7 @@ public:
     void runRender();  /* Thread rendu  : composition backbuffer + blit VGA */
 
 private:
+    MainMenu    mainMenu;
     Grid        grid;
     Peashooter* plants[MAX_PLANTS];
     int         plantCount;
