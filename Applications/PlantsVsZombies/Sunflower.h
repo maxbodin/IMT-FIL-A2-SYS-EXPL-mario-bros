@@ -15,6 +15,7 @@ public:
     void render() override;
     bool canShoot() const;
     BulletType getBulletType() const override;
+    PlantType getPlantType() const override;
 
     bool hasSunReady() const;
     void resetSunTimer();

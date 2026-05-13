@@ -1,6 +1,7 @@
 #include "vga.h"
 
 volatile unsigned char *video = (unsigned char *)0xA0000;
+static unsigned char (*current_palette)[3] = 0;
 /* I/O port helpers (you must have I/O privileges!) */
 static inline void outb(unsigned short port, unsigned char val) {
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
@@ -102,6 +103,7 @@ void plot_palette(int x, int y, int size) {
 
 
 void set_palette_vga(unsigned char palette_vga[256][3]) {
+    current_palette = palette_vga;
     // Sélection de l'entrée 0
     outb(0x3C8, 0);
     // Envoi des 256 triplets VGA (6-bit)
@@ -262,6 +264,60 @@ void draw_sprite_scaled(const unsigned char* sprite,
             unsigned char c = sprite[sy * srcW + sx];
             if (c != 0) {
                 video[py * 320 + px] = c;
+            }
+        }
+    }
+}
+
+// Find closest palette entry to an RGB value (VGA 6-bit)
+static unsigned char find_closest_color(int r, int g, int b) {
+    if (!current_palette) return 1;
+    int bestIdx = 1;
+    int bestDist = 0x7FFFFFFF;
+    for (int i = 1; i < 256; i++) {
+        int dr = current_palette[i][0] - r;
+        int dg = current_palette[i][1] - g;
+        int db = current_palette[i][2] - b;
+        int dist = dr*dr + dg*dg + db*db;
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+        }
+    }
+    return (unsigned char)bestIdx;
+}
+
+// Draw sprite with alpha blending (alpha 0-255, 255=fully opaque)
+void draw_sprite_alpha(const unsigned char* sprite,
+                       int w, int h,
+                       int dstX, int dstY,
+                       int alpha)
+{
+    if (!current_palette) {
+        draw_sprite(sprite, w, h, dstX, dstY);
+        return;
+    }
+    int x0 = (dstX < 0) ? -dstX : 0;
+    int y0 = (dstY < 0) ? -dstY : 0;
+    int x1 = (dstX + w > 320) ? 320 - dstX : w;
+    int y1 = (dstY + h > 200) ? 200 - dstY : h;
+    int inv = 256 - alpha;
+    for (int yy = y0; yy < y1; ++yy) {
+        for (int xx = x0; xx < x1; ++xx) {
+            unsigned char c = sprite[yy * w + xx];
+            if (c != 0) {
+                int off = (yy+dstY)*320 + (xx+dstX);
+                unsigned char bg = video[off];
+                int sr = current_palette[c][0];
+                int sg = current_palette[c][1];
+                int sb = current_palette[c][2];
+                int br = current_palette[bg][0];
+                int bgc = current_palette[bg][1];
+                int bb = current_palette[bg][2];
+                int mr = (sr * alpha + br * inv) >> 8;
+                int mg = (sg * alpha + bgc * inv) >> 8;
+                int mb = (sb * alpha + bb * inv) >> 8;
+                video[off] = find_closest_color(mr, mg, mb);
             }
         }
     }

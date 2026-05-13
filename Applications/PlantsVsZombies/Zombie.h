@@ -26,12 +26,22 @@ public:
     void applySlow(int duration);
     bool isSlowed() const;
 
+    void applyFire(int damage, int duration);
+    bool isOnFire() const;
+
 private:
     static const int ANIM_SPEED = 15; // update calls entre chaque frame
     int cooldown;
     int frame;
     int animTick;
     int slowTicks;
+
+    /* Fire effect */
+    int fireDamage;
+    int fireEndTick;
+    int fireNextDmgTick;
+    int fireFrame;
+    int fireAnimTick;
 };
 
 #endif
