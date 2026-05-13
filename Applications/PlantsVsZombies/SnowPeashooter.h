@@ -12,6 +12,7 @@ public:
     void update() override;
     void render() override;
     BulletType getBulletType() const override;
+    PlantType getPlantType() const override;
 };
 
 #endif

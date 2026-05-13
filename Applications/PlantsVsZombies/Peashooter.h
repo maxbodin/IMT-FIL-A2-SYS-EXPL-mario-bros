@@ -3,6 +3,7 @@
 
 #include <Applications/PlantsVsZombies/Entity.h>
 #include <Applications/PlantsVsZombies/Bullet.h>
+#include <Applications/PlantsVsZombies/PlantType.h>
 
 class Peashooter : public Entity {
 public:
@@ -20,6 +21,8 @@ public:
     virtual BulletType getBulletType() const;
     virtual bool hasSunReady() const;
     virtual void resetSunTimer();
+
+    virtual PlantType getPlantType() const;
 
     int getWidth() const override;
     int getHeight() const override;
