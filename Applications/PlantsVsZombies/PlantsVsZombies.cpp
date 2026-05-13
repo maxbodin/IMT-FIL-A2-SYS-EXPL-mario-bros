@@ -935,6 +935,8 @@ void PlantsVsZombies::runRender() {
 // ---------------------------------------------------------------------------
 
 void PlantsVsZombies::start() {
+    mainMenu.show();
+
     /* Pré-remplir les files des joueurs avec 2 plantes chacune. */
     queue1.seed(2);
     queue2.seed(2);
